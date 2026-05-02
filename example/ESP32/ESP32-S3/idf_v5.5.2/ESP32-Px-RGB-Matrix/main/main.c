@@ -96,3 +96,7 @@ void rgbw_start(void) {
     }
   }
 }
+
+void app_main(){
+  rgbw_start();
+}

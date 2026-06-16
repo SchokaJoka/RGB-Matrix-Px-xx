@@ -10,9 +10,8 @@
 #include "pixel-mapper.h"
 #include "graphics.h"
 #include "demo-runner.h"
-#include "train-demo.h"
 #include "weather-demo.h"
-
+#include "train-demo.h"
 
 #include <assert.h>
 #include <getopt.h>
@@ -1166,11 +1165,11 @@ static int usage(const char *progname,
           "\t11 - Brightness pulse generator\n"
           "\t12 - Colorful rotating 3d cube\n"
           "\t13 - MeteoSwiss weather summary (optional station code)\n"
-          "\t14 - Train summary (optional station code)\n");
+        "\t14 - Train summary (optional station code)\n");
   fprintf(stderr, "Example:\n\t%s -D 1 runtext.ppm\n"
           "Scrolls the runtext until Ctrl-C is pressed\n", progname);
   return 1;
-
+}
 
 int main(int argc, char *argv[]) {
   int demo = -1;
@@ -1291,17 +1290,15 @@ int main(int argc, char *argv[]) {
       demo_runner = new WireCube(canvas);
       break;
 
-   case 13:
-  demo_runner = CreateMeteoSwissWeather(
-      matrix,
-      demo_parameter ? demo_parameter : "BAS");
-  break;
-
-case 14:
-  demo_runner = CreateTrainDemo(
-      matrix,
-      demo_parameter ? demo_parameter : "BAS");
-  break;
+    case 13:
+      demo_runner = CreateMeteoSwissWeather(matrix,
+                                            demo_parameter ? demo_parameter
+                                                           : "BAS");
+      break; case 14:
+      demo_runner = CreateTrainDemo(matrix,
+                                            demo_parameter ? demo_parameter
+                                                           : "BAS");
+      break;
   }
 
   if (demo_runner == NULL)

@@ -149,9 +149,12 @@ private:
     const int x_offset = 2;
 
     // 👉 Spaltenlayout
-    const int x_dest = 2;
-    const int x_time = 80;
-    const int x_plat = 110;
+   const int panel_width = 64;                 // Breite des rechten Bereichs
+const int x_base = matrix_->width() - panel_width;
+
+const int x_dest = x_base + 2;
+const int x_time = x_base + 28;
+const int x_plat = x_base + 50;
 
     if (!ok || trains.empty()) {
       DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");

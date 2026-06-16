@@ -167,7 +167,7 @@ const int x_base = matrix_->width() - panel_width;
 
 const int x_dest = x_base + 2;
 const int x_time = x_base + 28;
-const int x_delay = x_time + 10;
+const int x_delay = x_time + 20;
 const int x_plat = x_base + 50;
 
     if (!ok || trains.empty()) {

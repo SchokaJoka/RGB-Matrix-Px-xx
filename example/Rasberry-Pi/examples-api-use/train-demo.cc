@@ -134,8 +134,8 @@ private:
   }
 
   void DrawLineText(int x, int y, const Color &color, const std::string &text) {
-    DrawText(offscreen_, font_, x, y + font_.baseline(), color, NULL,
-             text.c_str(), 0);
+   DrawText(offscreen_, font_, x, y, color, NULL,
+         text.c_str(), 0);
   }
 
   void RenderFrame(bool ok,

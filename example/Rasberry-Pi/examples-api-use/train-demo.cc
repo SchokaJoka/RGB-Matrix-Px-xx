@@ -204,10 +204,10 @@ const int x_plat = x_time + 21;
                t.has_platform ? t.platform : "-");
 } else {
   // MODE B: DELAY instead of TIME
-  std::string delay = t.has_delay ? ("+" + t.delay) : "0";
+  std::string delay = t.has_delay ? ("+" + t.delay) : " ";
 
   DrawLineText(x_dest, y, Color(0, 255, 255), dest);
-  DrawLineText(x_time, y, Color(255, 80, 80), delay == "0" ? "" : delay);
+  DrawLineText(x_time, y, Color(255, 80, 80), delay <= "0" ? " " : delay);
   DrawLineText(x_plat, y, Color(255, 200, 0),
                t.has_platform ? t.platform : "-");
 }

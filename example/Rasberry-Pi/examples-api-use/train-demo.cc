@@ -43,10 +43,12 @@ struct TrainDeparture {
   std::string direction;
   std::string departure_time;
   std::string platform;
+  std:: string delay;
 
   bool has_direction = false;
   bool has_time = false;
   bool has_platform = false;
+  bool has_delay = false;
 };
 
 static bool FetchTrainData(const std::string &station,
@@ -97,6 +99,17 @@ static bool FetchTrainData(const std::string &station,
       if (plat_end != std::string::npos) {
         d.platform = json.substr(plat, plat_end - plat);
         d.has_platform = true;
+      }
+    }
+
+    // --- FIND delay ---
+    size_t del = json.find("\"delay\":", end);
+    if (del != std::string::npos) {
+      del += 8;
+      size_t del_end = json.find(",", del);
+      if (del_end != std::string::npos) {
+        d.delay = json.substr(del, del_end - del);
+        d.has_delay = true;
       }
     }
 
@@ -154,6 +167,7 @@ const int x_base = matrix_->width() - panel_width;
 
 const int x_dest = x_base + 2;
 const int x_time = x_base + 28;
+const int x_delay = x_time + 10;
 const int x_plat = x_base + 50;
 
     if (!ok || trains.empty()) {
@@ -164,9 +178,9 @@ const int x_plat = x_base + 50;
     }
 
     // Header
-    DrawLineText(x_dest, 0, Color(255, 255, 0), "DEST");
-    DrawLineText(x_time, 0, Color(255, 255, 0), "TIME");
-    DrawLineText(x_plat, 0, Color(255, 255, 0), "GL");
+    // DrawLineText(x_dest, 0, Color(255, 255, 0), "DEST");
+    // DrawLineText(x_time, 0, Color(255, 255, 0), "TIME");
+    // DrawLineText(x_plat, 0, Color(255, 255, 0), "GL");
 
     int y = font_.height() * 2;
 
@@ -187,6 +201,10 @@ const int x_plat = x_base + 50;
 
       DrawLineText(x_dest, y, Color(0, 255, 255), dest);
       DrawLineText(x_time, y, Color(255, 255, 255), time);
+      if (t.has_delay) {
+        std::string delay_str = "+" + t.delay;
+        DrawLineText(x_delay, y, Color(255, 0, 0), delay_str);
+      }
       DrawLineText(x_plat, y, Color(255, 200, 0), plat);
 
       y += font_.height() + 1;

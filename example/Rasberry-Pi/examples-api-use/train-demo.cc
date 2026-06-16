@@ -144,7 +144,7 @@ private:
   offscreen_->Fill(0, 0, 0);
 
   // 👉 leicht mehr Padding nach rechts (wichtig gegen abgeschnittene 1. Buchstaben)
-  int x_offset = matrix_->width() / 2 + 6;
+  int x_offset = matrix_->width() / 2 + 10;
 
   if (!ok || trains.empty()) {
     DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");

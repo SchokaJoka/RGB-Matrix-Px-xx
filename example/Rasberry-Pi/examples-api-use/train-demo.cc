@@ -165,7 +165,7 @@ private:
     DrawLineText(x_time, 0, Color(255, 255, 0), "TIME");
     DrawLineText(x_plat, 0, Color(255, 255, 0), "GL");
 
-    int y = font_.height();
+    int y = font_.height() * 2;
 
     for (size_t i = 0; i < trains.size() && y < matrix_->height(); i++) {
 
@@ -176,18 +176,7 @@ private:
         time = t.departure_time.substr(11, 5);
 
       char dest[64];
-      // if(t.direction == "enzburg") {
-      //   snprintf(dest, sizeof(dest), "Lenzburg");
-      // } 
-      // else if(t.direction == "aar"){
-      //   snprintf(dest, sizeof(dest), "Baar");
-      // }
-      //  else if(t.direction == "uzern"){
-      //   snprintf(dest, sizeof(dest), "Luzern");
-      // } else if(t.direction == "ursee"){
-      //   snprintf(dest, sizeof(dest), "Sursee");
-      // }
-      // else
+    
       snprintf(dest, sizeof(dest), "%.12s", t.direction.c_str());
 
       char plat[8];
@@ -197,7 +186,7 @@ private:
       DrawLineText(x_time, y, Color(255, 255, 255), time);
       DrawLineText(x_plat, y, Color(255, 200, 0), plat);
 
-      y += font_.height() - 1;
+      y += font_.height() + 1;
     }
   }
 

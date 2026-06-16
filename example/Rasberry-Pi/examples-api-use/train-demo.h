@@ -11,7 +11,7 @@ class RGBMatrix;
 
 class DemoRunner;
 
-DemoRunner *CreateMeteoSwissWeather(rgb_matrix::RGBMatrix *matrix,
+DemoRunner *CreateTrainDemo(rgb_matrix::RGBMatrix *matrix,
                                     const std::string &station_abbr);
 
 #endif  // TRAIN_DEMO_H_

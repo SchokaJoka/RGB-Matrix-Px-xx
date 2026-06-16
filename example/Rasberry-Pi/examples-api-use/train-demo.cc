@@ -202,9 +202,9 @@ static std::string FormatMetric(bool has_value, double value, int decimals,
   return buffer;
 }
 
-class MeteoSwissWeather : public DemoRunner {
+class TrainDemo : public DemoRunner {
 public:
-  MeteoSwissWeather(RGBMatrix *matrix, const std::string &station_abbr)
+  TrainDemo(RGBMatrix *matrix, const std::string &station_abbr)
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
     offscreen_ = matrix_->CreateFrameCanvas();
     font_file_ = (matrix_->height() >= 20) ? "../fonts/5x7.bdf"
@@ -292,7 +292,7 @@ private:
 
 }  // namespace
 
-DemoRunner *CreateMeteoSwissWeather(RGBMatrix *matrix,
+DemoRunner *CreateTrainDemo(RGBMatrix *matrix,
                                     const std::string &station_abbr) {
-  return new MeteoSwissWeather(matrix, station_abbr);
+  return new TrainDemo(matrix, station_abbr);
 }

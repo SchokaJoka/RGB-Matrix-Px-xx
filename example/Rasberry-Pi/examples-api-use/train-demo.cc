@@ -64,31 +64,45 @@ static bool FetchTrainData(const std::string &station,
 
   size_t pos = 0;
 
-  while ((pos = json.find("\"to\":\"", pos)) != std::string::npos) {
-    TrainDeparture d;
+  while (true) {
+    // --- FIND "to" ---
+    size_t key = json.find("\"to\":\"", pos);
+    if (key == std::string::npos) break;
 
-    pos += 7;
-    size_t end = json.find("\"", pos);
-    d.direction = json.substr(pos, end - pos);
+    key += 6;  // korrekt: Länge von "to":"
+
+    size_t end = json.find("\"", key);
+    if (end == std::string::npos) break;
+
+    TrainDeparture d;
+    d.direction = json.substr(key, end - key);
     d.has_direction = true;
 
+    // --- FIND departure ---
     size_t dep = json.find("\"departure\":\"", end);
     if (dep != std::string::npos) {
       dep += 13;
       size_t dep_end = json.find("\"", dep);
-      d.departure_time = json.substr(dep, dep_end - dep);
-      d.has_time = true;
+      if (dep_end != std::string::npos) {
+        d.departure_time = json.substr(dep, dep_end - dep);
+        d.has_time = true;
+      }
     }
 
+    // --- FIND platform ---
     size_t plat = json.find("\"platform\":\"", end);
     if (plat != std::string::npos) {
       plat += 12;
       size_t plat_end = json.find("\"", plat);
-      d.platform = json.substr(plat, plat_end - plat);
-      d.has_platform = true;
+      if (plat_end != std::string::npos) {
+        d.platform = json.substr(plat, plat_end - plat);
+        d.has_platform = true;
+      }
     }
 
     out->push_back(d);
+
+    // wichtig: weiter im JSON suchen
     pos = end;
   }
 
@@ -162,18 +176,18 @@ private:
         time = t.departure_time.substr(11, 5);
 
       char dest[64];
-      if(t.direction == "enzburg") {
-        snprintf(dest, sizeof(dest), "Lenzburg");
-      } 
-      else if(t.direction == "aar"){
-        snprintf(dest, sizeof(dest), "Baar");
-      }
-       else if(t.direction == "uzern"){
-        snprintf(dest, sizeof(dest), "Luzern");
-      } else if(t.direction == "ursee"){
-        snprintf(dest, sizeof(dest), "Sursee");
-      }
-      else
+      // if(t.direction == "enzburg") {
+      //   snprintf(dest, sizeof(dest), "Lenzburg");
+      // } 
+      // else if(t.direction == "aar"){
+      //   snprintf(dest, sizeof(dest), "Baar");
+      // }
+      //  else if(t.direction == "uzern"){
+      //   snprintf(dest, sizeof(dest), "Luzern");
+      // } else if(t.direction == "ursee"){
+      //   snprintf(dest, sizeof(dest), "Sursee");
+      // }
+      // else
       snprintf(dest, sizeof(dest), "%.12s", t.direction.c_str());
 
       char plat[8];

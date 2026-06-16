@@ -9,6 +9,8 @@
 
 #include "pixel-mapper.h"
 #include "graphics.h"
+#include "demo-runner.h"
+#include "weather-demo.h"
 
 #include <assert.h>
 #include <getopt.h>
@@ -25,29 +27,15 @@
 
 using std::min;
 using std::max;
+using namespace rgb_matrix;
 
 #define TERM_ERR  "\033[1;31m"
 #define TERM_NORM "\033[0m"
-
-using namespace rgb_matrix;
 
 volatile bool interrupt_received = false;
 static void InterruptHandler(int signo) {
   interrupt_received = true;
 }
-
-class DemoRunner {
-protected:
-  DemoRunner(Canvas *canvas) : canvas_(canvas) {}
-  inline Canvas *canvas() { return canvas_; }
-
-public:
-  virtual ~DemoRunner() {}
-  virtual void Run() = 0;
-
-private:
-  Canvas *const canvas_;
-};
 
 /*
  * The following are demo image generators. They all use the utility
@@ -1172,7 +1160,8 @@ static int usage(const char *progname) {
           "\t9  - Volume bars (-m <time-step-ms>)\n"
           "\t10 - Evolution of color (-m <time-step-ms>)\n"
           "\t11 - Brightness pulse generator\n"
-          "\t12 - Colorful rotating 3d cube\n");
+          "\t12 - Colorful rotating 3d cube\n"
+          "\t13 - MeteoSwiss weather summary (optional station code)\n");
   fprintf(stderr, "Example:\n\t%s -D 1 runtext.ppm\n"
           "Scrolls the runtext until Ctrl-C is pressed\n", progname);
   return 1;
@@ -1292,6 +1281,12 @@ int main(int argc, char *argv[]) {
       
     case 12:
       demo_runner = new WireCube(canvas);
+      break;
+
+    case 13:
+      demo_runner = CreateMeteoSwissWeather(matrix,
+                                            demo_parameter ? demo_parameter
+                                                           : "BAS");
       break;
   }
 

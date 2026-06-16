@@ -147,7 +147,7 @@ while (!interrupt_received) {
   offscreen_ = matrix_->SwapOnVSync(offscreen_);
 
   show_delay_mode = !show_delay_mode;   // toggle every cycle
-  sleep(15);                            // 15 seconds instead of 30
+  sleep(10);                            // 15 seconds instead of 30
 }
   }
 
@@ -170,9 +170,8 @@ private:
 const int x_base = matrix_->width() - panel_width;
 
 const int x_dest = x_base + 2;
-const int x_time = x_base + 35;
-// const int x_delay = x_time + 20;
-const int x_plat = x_time + 23;
+const int x_time = x_base + 37;
+const int x_plat = x_time + 21;
 
     if (!ok || trains.empty()) {
       DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");
@@ -196,7 +195,6 @@ const int x_plat = x_time + 23;
     
       snprintf(dest, sizeof(dest), "%.12s", t.direction.c_str());
 
-      char plat[8];
 
       if (!show_delay_mode) {
   // MODE A: TIME
@@ -209,7 +207,7 @@ const int x_plat = x_time + 23;
   std::string delay = t.has_delay ? ("+" + t.delay) : "0";
 
   DrawLineText(x_dest, y, Color(0, 255, 255), dest);
-  DrawLineText(x_time, y, Color(255, 80, 80), delay);
+  DrawLineText(x_time, y, Color(255, 80, 80), delay == "0" ? "" : delay);
   DrawLineText(x_plat, y, Color(255, 200, 0),
                t.has_platform ? t.platform : "-");
 }

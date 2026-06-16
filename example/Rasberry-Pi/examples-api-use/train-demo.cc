@@ -200,8 +200,8 @@ namespace
 
       const int x_dest = x_base + 2;
       const int x_time = x_base + 35;
-      const int x_delay = x_time + 20;
-      const int x_plat = x_base + 55;
+      // const int x_delay = x_time + 20;
+      // const int x_plat = x_base + 55;
 
       if (!ok || trains.empty())
       {

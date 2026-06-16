@@ -2,7 +2,7 @@ include ../config.mk
 
 CFLAGS=-Wall -O3 $(CPU_ARCH_FLAGS) $(LTO_FLAGS) -g -Wextra -Wno-unused-parameter
 CXXFLAGS=$(CFLAGS)
-OBJECTS=demo-main.o weather-demo.o minimal-example.o c-example.o text-example.o scrolling-text-example.o clock.o ledcat.o input-example.o pixel-mover.o digital-ideation.o
+OBJECTS=demo-main.o weather-demo.o train-demo.o minimal-example.o c-example.o text-example.o scrolling-text-example.o clock.o ledcat.o input-example.o pixel-mover.o digital-ideation.o
 BINARIES=demo minimal-example c-example text-example scrolling-text-example clock ledcat input-example pixel-mover digital-ideation
 
 # Where our library resides. You mostly only need to change the
@@ -23,8 +23,8 @@ all : $(BINARIES)
 $(RGB_LIBRARY): FORCE
 	$(MAKE) -C $(RGB_LIBDIR)
 
-demo : demo-main.o weather-demo.o $(RGB_LIBRARY)
-	$(CXX) demo-main.o weather-demo.o -o $@ $(LDFLAGS)
+demo : demo-main.o weather-demo.o train-demo.o $(RGB_LIBRARY)
+	$(CXX) demo-main.o weather-demo.o train-demo.o -o $@ $(LDFLAGS)
 
 minimal-example : minimal-example.o
 input-example : input-example.o

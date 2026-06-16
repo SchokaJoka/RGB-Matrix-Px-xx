@@ -1136,7 +1136,9 @@ private:
   citizen* parents_;
 };
 
-static int usage(const char *progname) {
+static int usage(const char *progname,
+     const RGBMatrix::Options &matrix_options,
+     const RuntimeOptions &runtime_opt) {
   fprintf(stderr, "usage: %s <options> -D <demo-nr> [optional parameter]\n",
           progname);
   fprintf(stderr, "Options:\n");
@@ -1145,7 +1147,7 @@ static int usage(const char *progname) {
           );
 
 
-  rgb_matrix::PrintMatrixFlags(stderr);
+  rgb_matrix::PrintMatrixFlags(stderr, matrix_options, runtime_opt);
 
   fprintf(stderr, "Demos, chosen with -D\n");
   fprintf(stderr, "\t0  - some rotating square\n"
@@ -1175,15 +1177,18 @@ int main(int argc, char *argv[]) {
   RGBMatrix::Options matrix_options;
   rgb_matrix::RuntimeOptions runtime_opt;
 
-  // These are the defaults when no command-line flags are given.
-  matrix_options.rows = 32;
-  matrix_options.chain_length = 1;
+  // Default to a 64x64 matrix split across two chained panels.
+  matrix_options.rows = 64;
+  matrix_options.cols = 64;
+  matrix_options.chain_length = 2;
   matrix_options.parallel = 1;
+  matrix_options.disable_hardware_pulsing = true;
+  runtime_opt.gpio_slowdown = 2;
 
   // First things first: extract the command line flags that contain
   // relevant matrix options.
   if (!ParseOptionsFromFlags(&argc, &argv, &matrix_options, &runtime_opt)) {
-    return usage(argv[0]);
+    return usage(argv[0], matrix_options, runtime_opt);
   }
 
   int opt;
@@ -1198,7 +1203,7 @@ int main(int argc, char *argv[]) {
       break;
 
     default: /* '?' */
-      return usage(argv[0]);
+      return usage(argv[0], matrix_options, runtime_opt);
     }
   }
 
@@ -1208,7 +1213,7 @@ int main(int argc, char *argv[]) {
 
   if (demo < 0) {
     fprintf(stderr, TERM_ERR "Expected required option -D <demo>\n" TERM_NORM);
-    return usage(argv[0]);
+    return usage(argv[0], matrix_options, runtime_opt);
   }
 
   RGBMatrix *matrix = RGBMatrix::CreateFromOptions(matrix_options, runtime_opt);
@@ -1291,7 +1296,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (demo_runner == NULL)
-    return usage(argv[0]);
+    return usage(argv[0], matrix_options, runtime_opt);
 
   // Set up an interrupt handler to be able to stop animations while they go
   // on. Each demo tests for while (!interrupt_received) {},

@@ -164,7 +164,16 @@ private:
       char dest[64];
       if(t.direction == "enzburg") {
         snprintf(dest, sizeof(dest), "Lenzburg");
-      } else
+      } 
+      else if(t.direction == "aar"){
+        snprintf(dest, sizeof(dest), "Baar");
+      }
+       else if(t.direction == "uzern"){
+        snprintf(dest, sizeof(dest), "Luzern");
+      } else if(t.direction == "ursee"){
+        snprintf(dest, sizeof(dest), "Sursee");
+      }
+      else
       snprintf(dest, sizeof(dest), "%.12s", t.direction.c_str());
 
       char plat[8];

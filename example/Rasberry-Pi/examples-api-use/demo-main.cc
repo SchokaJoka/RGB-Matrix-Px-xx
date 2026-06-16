@@ -1295,9 +1295,7 @@ int main(int argc, char *argv[]) {
                                             demo_parameter ? demo_parameter
                                                            : "BAS");
       break; case 14:
-      demo_runner = CreateTrainDemo(matrix,
-                                            demo_parameter ? demo_parameter
-                                                           : "BAS");
+      demo_runner = CreateTrainDemo(matrix,"Emmenbrücke");
       break;
   }
 

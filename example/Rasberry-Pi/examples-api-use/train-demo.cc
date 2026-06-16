@@ -134,8 +134,8 @@ private:
   }
 
   void DrawLineText(int x, int y, const Color &color, const std::string &text) {
-   DrawText(offscreen_, font_, x, y, color, NULL,
-         text.c_str(), 0);
+    DrawText(offscreen_, font_, x, y + font_.baseline(), color, NULL,
+             text.c_str(), 0);
   }
 
   void RenderFrame(bool ok,
@@ -144,8 +144,7 @@ private:
   offscreen_->Fill(0, 0, 0);
 
   // 👉 leicht mehr Padding nach rechts (wichtig gegen abgeschnittene 1. Buchstaben)
-  int x_offset = matrix_->width() / 2 + 10;
-
+  const int x_offset = 2;
   if (!ok || trains.empty()) {
     DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");
     DrawLineText(x_offset, font_.height(), Color(255, 255, 0), station_abbr_);

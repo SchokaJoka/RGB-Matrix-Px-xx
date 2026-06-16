@@ -197,11 +197,10 @@ const int x_delay = x_time + 20;
       snprintf(dest, sizeof(dest), "%.12s", t.direction.c_str());
 
       char plat[8];
-      snprintf(plat, sizeof(plat), "%s", t.platform.c_str());
 
       DrawLineText(x_dest, y, Color(0, 255, 255), dest);
       DrawLineText(x_time, y, Color(255, 255, 255), time);
-      if (t.has_delay) {
+      if (t.delay != "0" && !t.delay.empty()) {
         std::string delay_str = "+" + t.delay;
         DrawLineText(x_delay, y, Color(255, 0, 0), delay_str);
       }

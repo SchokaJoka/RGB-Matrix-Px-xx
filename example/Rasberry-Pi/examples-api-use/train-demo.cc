@@ -18,63 +18,6 @@ using namespace rgb_matrix;
 
 namespace {
 
-static std::string ToLowerCopy(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return value;
-}
-
-static std::string ToUpperCopy(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
-                 [](unsigned char c) { return std::toupper(c); });
-  return value;
-}
-
-static std::string TrimLine(std::string value) {
-  while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
-    value.pop_back();
-  }
-  return value;
-}
-
-static std::vector<std::string> SplitSemicolonLine(const std::string &line) {
-  std::vector<std::string> parts;
-  size_t start = 0;
-  while (start <= line.size()) {
-    const size_t end = line.find(';', start);
-    if (end == std::string::npos) {
-      parts.push_back(line.substr(start));
-      break;
-    }
-    parts.push_back(line.substr(start, end - start));
-    start = end + 1;
-  }
-  return parts;
-}
-
-static int FindColumn(const std::vector<std::string> &columns,
-                      const std::string &name) {
-  for (size_t i = 0; i < columns.size(); ++i) {
-    if (columns[i] == name) return static_cast<int>(i);
-  }
-  return -1;
-}
-
-static bool GetValueAt(const std::vector<std::string> &values, int index,
-                       std::string *value) {
-  if (index < 0 || index >= static_cast<int>(values.size())) return false;
-  if (values[index].empty()) return false;
-  *value = values[index];
-  return true;
-}
-
-static bool ParseDouble(const std::string &value, double *result) {
-  if (value.empty()) return false;
-  char *end = NULL;
-  *result = strtod(value.c_str(), &end);
-  return end != value.c_str();
-}
-
 static bool RunCommand(const std::string &command, std::string *output,
                        std::string *error_message) {
   FILE *pipe = popen(command.c_str(), "r");
@@ -154,25 +97,11 @@ static bool FetchTrainData(const std::string &station,
   return !out->empty();
 }
 
-static std::string FormatMetric(bool has_value, double value, int decimals,
-                                const char *prefix, const char *suffix) {
-  char buffer[64];
-  if (!has_value) {
-    snprintf(buffer, sizeof(buffer), "%s--%s", prefix, suffix);
-  } else {
-    if (decimals == 0) {
-      snprintf(buffer, sizeof(buffer), "%s%.0f%s", prefix, value, suffix);
-    } else {
-      snprintf(buffer, sizeof(buffer), "%s%.*f%s", prefix, decimals, value,
-               suffix);
-    }
-  }
-  return buffer;
-}
 
-class MeteoSwissWeather : public DemoRunner {
+
+class TrainStationBoardDemo : public DemoRunner {
 public:
-  MeteoSwissWeather(RGBMatrix *matrix, const std::string &station_abbr)
+  TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
     offscreen_ = matrix_->CreateFrameCanvas();
     font_file_ = (matrix_->height() >= 20) ? "../fonts/5x7.bdf"
@@ -247,7 +176,7 @@ private:
 
 }  // namespace
 
-DemoRunner *CreateMeteoSwissWeather(RGBMatrix *matrix,
-                                    const std::string &station_abbr) {
-  return new MeteoSwissWeather(matrix, station_abbr);
+DemoRunner *CreateTrainDemo(RGBMatrix *matrix,
+                                        const std::string &station_abbr) {
+  return new TrainStationBoardDemo(matrix, station_abbr);
 }

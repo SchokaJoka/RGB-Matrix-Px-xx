@@ -200,7 +200,7 @@ const int x_plat = x_time + 20;
       //   std::string delay_str = "+" + t.delay;
       //   DrawLineText(x_delay, y, Color(255, 0, 0), delay_str);
       // }
-      DrawLineText(x_plat, y, Color(255, 200, 0), plat);
+      DrawLineText(x_plat, y, Color(255, 200, 0), t.has_platform ? t.platform : "-"  );
 
       y += font_.height() + 1;
     }

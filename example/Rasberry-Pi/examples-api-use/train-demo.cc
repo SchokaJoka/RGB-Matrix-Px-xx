@@ -123,6 +123,7 @@ static bool FetchTrainData(const std::string &station,
 }
 
 class TrainStationBoardDemo : public DemoRunner {
+  bool show_delay_mode = false;
 public:
   TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
@@ -134,18 +135,20 @@ public:
   }
 
   void Run() override {
-    while (!interrupt_received) {
+while (!interrupt_received) {
 
-      std::vector<TrainDeparture> trains;
-      std::string error;
+  std::vector<TrainDeparture> trains;
+  std::string error;
 
-      bool ok = FetchTrainData(station_abbr_, &trains, &error);
+  bool ok = FetchTrainData(station_abbr_, &trains, &error);
 
-      RenderFrame(ok, trains, error);
+  RenderFrame(ok, trains, error, show_delay_mode);
 
-      offscreen_ = matrix_->SwapOnVSync(offscreen_);
-      sleep(30);
-    }
+  offscreen_ = matrix_->SwapOnVSync(offscreen_);
+
+  show_delay_mode = !show_delay_mode;   // toggle every cycle
+  sleep(15);                            // 15 seconds instead of 30
+}
   }
 
 private:
@@ -156,7 +159,8 @@ private:
 
   void RenderFrame(bool ok,
                    const std::vector<TrainDeparture> &trains,
-                   const std::string &error_message) {
+                   const std::string &error_message,
+                   bool show_delay_mode) {
     offscreen_->Fill(0, 0, 0);
 
     const int x_offset = 2;
@@ -168,7 +172,7 @@ const int x_base = matrix_->width() - panel_width;
 const int x_dest = x_base + 2;
 const int x_time = x_base + 35;
 // const int x_delay = x_time + 20;
-const int x_plat = x_time + 20;
+const int x_plat = x_time + 23;
 
     if (!ok || trains.empty()) {
       DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");
@@ -194,13 +198,21 @@ const int x_plat = x_time + 20;
 
       char plat[8];
 
-      DrawLineText(x_dest, y, Color(0, 255, 255), dest);
-      DrawLineText(x_time, y, Color(255, 255, 255), time);
-      // if (t.delay != "0" && !t.delay.empty()) {
-      //   std::string delay_str = "+" + t.delay;
-      //   DrawLineText(x_delay, y, Color(255, 0, 0), delay_str);
-      // }
-      DrawLineText(x_plat, y, Color(255, 200, 0), t.has_platform ? t.platform : "-"  );
+      if (!show_delay_mode) {
+  // MODE A: TIME
+  DrawLineText(x_dest, y, Color(0, 255, 255), dest);
+  DrawLineText(x_time, y, Color(255, 255, 255), time);
+  DrawLineText(x_plat, y, Color(255, 200, 0),
+               t.has_platform ? t.platform : "-");
+} else {
+  // MODE B: DELAY instead of TIME
+  std::string delay = t.has_delay ? ("+" + t.delay) : "0";
+
+  DrawLineText(x_dest, y, Color(0, 255, 255), dest);
+  DrawLineText(x_time, y, Color(255, 80, 80), delay);
+  DrawLineText(x_plat, y, Color(255, 200, 0),
+               t.has_platform ? t.platform : "-");
+}
 
       y += font_.height() + 1;
     }

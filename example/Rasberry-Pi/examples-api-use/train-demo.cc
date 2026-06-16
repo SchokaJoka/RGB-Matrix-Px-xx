@@ -162,6 +162,9 @@ private:
         time = t.departure_time.substr(11, 5);
 
       char dest[64];
+      if(t.direction == "enzburg") {
+        snprintf(dest, sizeof(dest), "Lenzburg");
+      } else
       snprintf(dest, sizeof(dest), "%.12s", t.direction.c_str());
 
       char plat[8];

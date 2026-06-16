@@ -96,94 +96,62 @@ static bool RunCommand(const std::string &command, std::string *output,
   return true;
 }
 
-struct WeatherReading {
-  std::string station_abbr;
-  std::string reference_timestamp;
-  bool has_temperature = false;
-  bool has_humidity = false;
-  bool has_pressure = false;
-  bool has_wind_speed = false;
-  bool has_gust_speed = false;
-  bool has_precipitation = false;
-  double temperature_c = 0.0;
-  double humidity_percent = 0.0;
-  double pressure_hpa = 0.0;
-  double wind_speed_ms = 0.0;
-  double gust_speed_ms = 0.0;
-  double precipitation_mm = 0.0;
+struct TrainDeparture {
+  std::string direction;
+  std::string departure_time;
+  std::string platform;
+
+  bool has_direction = false;
+  bool has_time = false;
+  bool has_platform = false;
 };
 
-static bool FetchWeatherReading(const std::string &station_abbr,
-                                WeatherReading *reading,
-                                std::string *error_message) {
-  const std::string station_lower = ToLowerCopy(station_abbr);
-  std::string csv;
-  const std::string url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/" +
-      station_lower + "/ogd-smn_" + station_lower + "_t_now.csv";
-  if (!RunCommand("curl -fsSL " + url, &csv, error_message)) {
+static bool FetchTrainData(const std::string &station,
+                           std::vector<TrainDeparture> *out,
+                           std::string *error_message) {
+  std::string json;
+
+  std::string url =
+      "https://transport.opendata.ch/v1/stationboard?station=" +
+      station + "&limit=10";
+
+  if (!RunCommand("curl -fsSL \"" + url + "\"", &json, error_message)) {
     return false;
   }
 
-  std::istringstream input(csv);
-  std::string line;
-  std::vector<std::string> lines;
-  while (std::getline(input, line)) {
-    line = TrimLine(line);
-    if (!line.empty()) {
-      lines.push_back(line);
+  // super simple parsing (quick hack version)
+  // besser wäre: nlohmann/json (empfohlen!)
+  size_t pos = 0;
+
+  while ((pos = json.find("\"to\":\"", pos)) != std::string::npos) {
+    TrainDeparture d;
+
+    pos += 7;
+    size_t end = json.find("\"", pos);
+    d.direction = json.substr(pos, end - pos);
+    d.has_direction = true;
+
+    size_t dep = json.find("\"departure\":\"", end);
+    if (dep != std::string::npos) {
+      dep += 13;
+      size_t dep_end = json.find("\"", dep);
+      d.departure_time = json.substr(dep, dep_end - dep);
+      d.has_time = true;
     }
+
+    size_t plat = json.find("\"platform\":\"", end);
+    if (plat != std::string::npos) {
+      plat += 12;
+      size_t plat_end = json.find("\"", plat);
+      d.platform = json.substr(plat, plat_end - plat);
+      d.has_platform = true;
+    }
+
+    out->push_back(d);
+    pos = end;
   }
 
-  if (lines.size() < 2) {
-    *error_message = "weather CSV did not contain any data rows";
-    return false;
-  }
-
-  const std::vector<std::string> header = SplitSemicolonLine(lines.front());
-  const std::vector<std::string> row = SplitSemicolonLine(lines.back());
-
-  const int station_index = FindColumn(header, "station_abbr");
-  const int timestamp_index = FindColumn(header, "reference_timestamp");
-  const int temperature_index = FindColumn(header, "tre200s0");
-  const int humidity_index = FindColumn(header, "ure200s0");
-  const int pressure_index = FindColumn(header, "prestas0");
-  const int wind_index = FindColumn(header, "fkl010z0");
-  const int gust_index = FindColumn(header, "fkl010z1");
-  const int precipitation_index = FindColumn(header, "rre150z0");
-
-  if (!GetValueAt(row, station_index, &reading->station_abbr) ||
-      !GetValueAt(row, timestamp_index, &reading->reference_timestamp)) {
-    *error_message = "weather CSV row is missing station or timestamp data";
-    return false;
-  }
-
-  std::string value;
-  if (GetValueAt(row, temperature_index, &value) &&
-      ParseDouble(value, &reading->temperature_c)) {
-    reading->has_temperature = true;
-  }
-  if (GetValueAt(row, humidity_index, &value) &&
-      ParseDouble(value, &reading->humidity_percent)) {
-    reading->has_humidity = true;
-  }
-  if (GetValueAt(row, pressure_index, &value) &&
-      ParseDouble(value, &reading->pressure_hpa)) {
-    reading->has_pressure = true;
-  }
-  if (GetValueAt(row, wind_index, &value) &&
-      ParseDouble(value, &reading->wind_speed_ms)) {
-    reading->has_wind_speed = true;
-  }
-  if (GetValueAt(row, gust_index, &value) &&
-      ParseDouble(value, &reading->gust_speed_ms)) {
-    reading->has_gust_speed = true;
-  }
-  if (GetValueAt(row, precipitation_index, &value) &&
-      ParseDouble(value, &reading->precipitation_mm)) {
-    reading->has_precipitation = true;
-  }
-
-  return true;
+  return !out->empty();
 }
 
 static std::string FormatMetric(bool has_value, double value, int decimals,
@@ -202,9 +170,9 @@ static std::string FormatMetric(bool has_value, double value, int decimals,
   return buffer;
 }
 
-class TrainDemo : public DemoRunner {
+class MeteoSwissWeather : public DemoRunner {
 public:
-  TrainDemo(RGBMatrix *matrix, const std::string &station_abbr)
+  MeteoSwissWeather(RGBMatrix *matrix, const std::string &station_abbr)
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
     offscreen_ = matrix_->CreateFrameCanvas();
     font_file_ = (matrix_->height() >= 20) ? "../fonts/5x7.bdf"
@@ -214,17 +182,20 @@ public:
     }
   }
 
-  void Run() override {
-    while (!interrupt_received) {
-      WeatherReading reading;
-      std::string error_message;
-      const bool ok = FetchWeatherReading(station_abbr_, &reading,
-                                          &error_message);
-      RenderFrame(ok, reading, error_message);
-      offscreen_ = matrix_->SwapOnVSync(offscreen_);
-      SleepUntilNextRefresh();
-    }
+void Run() override {
+  while (!interrupt_received) {
+
+    std::vector<TrainDeparture> trains;
+    std::string error;
+
+    bool ok = FetchTrainData(station_abbr_, &trains, &error);
+
+    RenderFrame(ok, trains, error);
+
+    offscreen_ = matrix_->SwapOnVSync(offscreen_);
+    sleep(30); // Zugdaten alle 30 Sekunden
   }
+}
 
 private:
   void SleepUntilNextRefresh() {
@@ -239,49 +210,33 @@ private:
              text.c_str(), 0);
   }
 
-  void RenderFrame(bool ok, const WeatherReading &reading,
-                   const std::string &error_message) {
-    offscreen_->Fill(0, 0, 0);
-    const bool compact = matrix_->height() < font_.height() * 3;
+  void RenderFrame(bool ok,
+                 const std::vector<TrainDeparture> &trains,
+                 const std::string &error_message) {
+  offscreen_->Fill(0, 0, 0);
 
-    if (!ok) {
-      DrawLineText(0, 0, Color(255, 0, 0), "MeteoSwiss weather");
-      DrawLineText(0, font_.height(), Color(255, 255, 0), station_abbr_);
-      if (!compact) {
-        DrawLineText(0, font_.height() * 2, Color(255, 255, 255),
-                     error_message);
-      }
-      return;
-    }
+  if (!ok || trains.empty()) {
+    DrawLineText(0, 0, Color(255, 0, 0), "Train board error");
+    DrawLineText(0, font_.height(), Color(255, 255, 0), station_abbr_);
+    DrawLineText(0, font_.height()*2, Color(255, 255, 255), error_message);
+    return;
+  }
+
+  int y = 0;
+  for (size_t i = 0; i < trains.size() && y < matrix_->height(); i++) {
+
+    const auto &t = trains[i];
 
     char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%s %s",
-             ToUpperCopy(station_abbr_).c_str(),
-             reading.reference_timestamp.c_str());
-    DrawLineText(0, 0, Color(255, 255, 0), buffer);
-
     snprintf(buffer, sizeof(buffer), "%s %s %s",
-             FormatMetric(reading.has_temperature, reading.temperature_c, 1,
-                          "T", "C").c_str(),
-             FormatMetric(reading.has_humidity, reading.humidity_percent, 0,
-                          "H", "%").c_str(),
-             FormatMetric(reading.has_wind_speed, reading.wind_speed_ms, 1,
-                          "W", "m/s").c_str());
-    DrawLineText(0, font_.height(), Color(0, 255, 255), buffer);
+             t.direction.c_str(),
+             t.departure_time.substr(11, 5).c_str(), // HH:MM
+             t.platform.c_str());
 
-    if (compact) {
-      return;
-    }
-
-    snprintf(buffer, sizeof(buffer), "%s %s %s",
-             FormatMetric(reading.has_gust_speed, reading.gust_speed_ms, 1,
-                          "G", "m/s").c_str(),
-             FormatMetric(reading.has_pressure, reading.pressure_hpa, 0,
-                          "P", "hPa").c_str(),
-             FormatMetric(reading.has_precipitation, reading.precipitation_mm, 1,
-                          "R", "mm").c_str());
-    DrawLineText(0, font_.height() * 2, Color(0, 255, 0), buffer);
+    DrawLineText(0, y, Color(0, 255, 255), buffer);
+    y += font_.height();
   }
+}
 
   RGBMatrix *const matrix_;
   FrameCanvas *offscreen_;
@@ -292,7 +247,7 @@ private:
 
 }  // namespace
 
-DemoRunner *CreateTrainDemo(RGBMatrix *matrix,
+DemoRunner *CreateMeteoSwissWeather(RGBMatrix *matrix,
                                     const std::string &station_abbr) {
-  return new TrainDemo(matrix, station_abbr);
+  return new MeteoSwissWeather(matrix, station_abbr);
 }

@@ -143,7 +143,8 @@ private:
                  const std::string &error_message) {
   offscreen_->Fill(0, 0, 0);
 
-  int x_offset = matrix_->width() / 2 + 5;  // 👉 RECHTE SEITE
+  // 👉 leicht mehr Padding nach rechts (wichtig gegen abgeschnittene 1. Buchstaben)
+  int x_offset = matrix_->width() / 2 + 6;
 
   if (!ok || trains.empty()) {
     DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");
@@ -153,6 +154,7 @@ private:
   }
 
   int y = 0;
+
   for (size_t i = 0; i < trains.size() && y < matrix_->height(); i++) {
 
     const auto &t = trains[i];
@@ -167,7 +169,7 @@ private:
 
     DrawLineText(x_offset, y, Color(0, 255, 255), buffer);
 
-    y += font_.height() - 1;  // 👉 kleiner / kompakter Abstand
+    y += font_.height() - 1;  // kompakter
   }
 }
 

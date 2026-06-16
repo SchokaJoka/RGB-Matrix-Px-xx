@@ -143,7 +143,7 @@ private:
                  const std::string &error_message) {
   offscreen_->Fill(0, 0, 0);
 
-  int x_offset = matrix_->width() / 2;  // 👉 RECHTE SEITE
+  int x_offset = matrix_->width() / 2 + 5;  // 👉 RECHTE SEITE
 
   if (!ok || trains.empty()) {
     DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");

@@ -190,7 +190,7 @@ static bool DiscoverLatestRun(std::string *item_id, std::string *latest_run, std
     std::string cur_item_id = date_str + "-ch";
     std::string url = "https://data.geo.admin.ch/api/stac/v1/collections/ch.meteoschweiz.ogd-local-forecasting/items/" + cur_item_id;
     
-    std::string cmd = "curl -fsSL -k \"" + url + "\"";
+    std::string cmd = "curl -fsSL -k --connect-timeout 10 -m 20 \"" + url + "\"";
     json.clear();
     std::string cmd_err;
     if (RunCommand(cmd, &json, &cmd_err) && !json.empty()) {
@@ -240,7 +240,7 @@ static bool FetchParameterRow(const std::string &item_id, const std::string &lat
                               std::string *error_message) {
   std::string url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting/" + item_id + "/vnut12.lssw." + latest_run + "." + param + ".csv";
   // Pipe through grep and force successful exit code so RunCommand doesn't fail on empty search matches
-  std::string cmd = "curl -fsSL -k \"" + url + "\" | grep \"^" + point_id + ";" + point_type_id + ";\" || true";
+  std::string cmd = "curl -fsSL -k --connect-timeout 10 -m 30 \"" + url + "\" | grep \"^" + point_id + ";" + point_type_id + ";\" || true";
   
   result_rows->clear();
   std::string cmd_err;
@@ -324,25 +324,44 @@ static std::string FormatUtcToLocalTime(const std::string &utc_date_str) {
 static bool FetchWeatherReading(const std::string &station_abbr,
                                 WeatherReading *reading,
                                 std::string *error_message) {
+  printf("MeteoSwiss API: Starting weather fetch for %s...\n", station_abbr.c_str());
+  fflush(stdout);
+  
   std::string point_id, point_type_id, display_name;
   MapAbbrToPoint(station_abbr, &point_id, &point_type_id, &display_name);
   
+  printf("MeteoSwiss API: Mapped to point_id=%s, point_type_id=%s, name=%s\n",
+         point_id.c_str(), point_type_id.c_str(), display_name.c_str());
+  fflush(stdout);
+  
   std::string item_id, latest_run;
   if (!DiscoverLatestRun(&item_id, &latest_run, error_message)) {
+    printf("MeteoSwiss API: Run discovery failed: %s\n", error_message->c_str());
+    fflush(stdout);
     return false;
   }
   
-  printf("MeteoSwiss API: Using item=%s, run=%s, point=%s (type=%s, name=%s)\n",
-         item_id.c_str(), latest_run.c_str(), point_id.c_str(), point_type_id.c_str(), display_name.c_str());
+  printf("MeteoSwiss API: Found latest run=%s in item=%s\n", latest_run.c_str(), item_id.c_str());
+  fflush(stdout);
   
   std::string temp_csv, picto_csv, tmin_csv, tmax_csv, dpicto_csv;
   
+  printf("MeteoSwiss API: Downloading hourly temperature (tre200h0)...\n"); fflush(stdout);
   if (!FetchParameterRow(item_id, latest_run, "tre200h0", point_id, point_type_id, &temp_csv, error_message)) return false;
+  
+  printf("MeteoSwiss API: Downloading hourly pictograms (jww003i0)...\n"); fflush(stdout);
   if (!FetchParameterRow(item_id, latest_run, "jww003i0", point_id, point_type_id, &picto_csv, error_message)) return false;
+  
+  printf("MeteoSwiss API: Downloading daily min temp (tre200dn)...\n"); fflush(stdout);
   if (!FetchParameterRow(item_id, latest_run, "tre200dn", point_id, point_type_id, &tmin_csv, error_message)) return false;
+  
+  printf("MeteoSwiss API: Downloading daily max temp (tre200dx)...\n"); fflush(stdout);
   if (!FetchParameterRow(item_id, latest_run, "tre200dx", point_id, point_type_id, &tmax_csv, error_message)) return false;
+  
+  printf("MeteoSwiss API: Downloading daily pictograms (jp2000d0)...\n"); fflush(stdout);
   if (!FetchParameterRow(item_id, latest_run, "jp2000d0", point_id, point_type_id, &dpicto_csv, error_message)) return false;
   
+  printf("MeteoSwiss API: Parsing CSV files...\n"); fflush(stdout);
   auto temp_rows = ParseCsvRows(temp_csv);
   auto picto_rows = ParseCsvRows(picto_csv);
   auto tmin_rows = ParseCsvRows(tmin_csv);
@@ -351,6 +370,7 @@ static bool FetchWeatherReading(const std::string &station_abbr,
   
   if (temp_rows.empty() || picto_rows.empty() || tmin_rows.empty() || tmax_rows.empty() || dpicto_rows.empty()) {
     *error_message = "No forecast data found for this point";
+    printf("MeteoSwiss API: Parse failed: empty rows\n"); fflush(stdout);
     return false;
   }
   
@@ -385,9 +405,10 @@ static bool FetchWeatherReading(const std::string &station_abbr,
   reading->tomorrow_max = tmax_val;
   reading->tomorrow_code = dpicto_val;
   
-  printf("Parsed weather: temp=%s, time=%s, code=%s, tmin=%s, tmax=%s, dcode=%s\n",
+  printf("MeteoSwiss API: Success. temp=%s, time=%s, code=%s, tmin=%s, tmax=%s, dcode=%s\n",
          reading->current_temp.c_str(), reading->current_time.c_str(), reading->current_code.c_str(),
          reading->tomorrow_min.c_str(), reading->tomorrow_max.c_str(), reading->tomorrow_code.c_str());
+  fflush(stdout);
   
   return true;
 }
@@ -396,6 +417,7 @@ class MeteoSwissWeather : public DemoRunner {
 public:
   MeteoSwissWeather(RGBMatrix *matrix, const std::string &station_abbr)
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
+    setvbuf(stdout, NULL, _IONBF, 0); // Turn off stdout buffering
     offscreen_ = matrix_->CreateFrameCanvas();
     font_file_ = (matrix_->height() >= 20) ? "../fonts/5x7.bdf"
                                           : "../fonts/4x6.bdf";

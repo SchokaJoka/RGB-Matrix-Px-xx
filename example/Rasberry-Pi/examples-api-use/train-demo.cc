@@ -147,6 +147,19 @@ namespace
     int train_x_ = 0;
     int train_y_ = 0;
     bool train_moving_right_ = true;
+    enum TrainState
+    {
+      MOVING_RIGHT,
+      WAIT_RIGHT,
+      MOVING_LEFT,
+      WAIT_LEFT
+    };
+
+    TrainState train_state_ = MOVING_RIGHT;
+
+    int wait_counter_ = 0;
+    const int wait_frames = 40; // ~2s
+    const int train_width = 17;
 
   public:
     TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
@@ -196,22 +209,47 @@ namespace
       while (!interrupt_received)
       {
         RenderFrame(ok, trains, error, show_delay_mode);
-
         offscreen_ = matrix_->SwapOnVSync(offscreen_);
 
-        if (train_moving_right_)
+        switch (train_state_)
         {
+        case MOVING_RIGHT:
           train_x_++;
 
-          if (train_x_ >= matrix_->width() - train_width)
-            train_moving_right_ = false;
-        }
-        else
-        {
+          if (train_x_ > matrix_->width())
+          {
+            train_state_ = WAIT_RIGHT;
+            wait_counter_ = 0;
+          }
+          break;
+
+        case WAIT_RIGHT:
+          wait_counter_++;
+          if (wait_counter_ > wait_frames)
+          {
+            train_state_ = MOVING_LEFT;
+            train_x_ = matrix_->width(); // Start rechts außerhalb
+          }
+          break;
+
+        case MOVING_LEFT:
           train_x_--;
 
-          if (train_x_ <= 0)
-            train_moving_right_ = true;
+          if (train_x_ < -train_width)
+          {
+            train_state_ = WAIT_LEFT;
+            wait_counter_ = 0;
+          }
+          break;
+
+        case WAIT_LEFT:
+          wait_counter_++;
+          if (wait_counter_ > wait_frames)
+          {
+            train_state_ = MOVING_RIGHT;
+            train_x_ = -train_width; // Start links außerhalb
+          }
+          break;
         }
 
         usleep(50000);

@@ -248,12 +248,14 @@ static bool DiscoverLatestRun(std::string *item_id, std::string *latest_run, std
 // Helper: Fetch a single parameter's filtered row(s) from the STAC asset
 static bool FetchParameterRow(const std::string &item_id, const std::string &latest_run,
                               const std::string &param, const std::string &point_id,
-                              const std::string &point_type_id, const std::string &max_date,
-                              std::string *result_rows, std::string *error_message) {
+                              const std::string &point_type_id, bool is_by_date,
+                              const std::string &max_date, std::string *result_rows,
+                              std::string *error_message) {
   std::string url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting/" + item_id + "/vnut12.lssw." + latest_run + "." + param + ".csv";
-  // Use awk to stop fetching as soon as the Date column exceeds max_date.
-  // Since the CSV is sorted by Date first, this stops the curl download immediately when we reach max_date.
-  std::string cmd = "curl -fsSL -k --compressed --connect-timeout 10 -m 30 \"" + url + "\" | awk -F';' -v pid=\"" + point_id + "\" -v ptype=\"" + point_type_id + "\" -v max_date=\"" + max_date + "\" 'NR == 1 { print; next } $3 > max_date { exit } $1 == pid && $2 == ptype { print }' || true";
+  // Use awk to stop fetching as soon as possible.
+  // - If is_by_date is true, we exit when the Date (col 3) exceeds max_date.
+  // - If is_by_date is false (sorted by point_id first), we exit when we finish matching the target point.
+  std::string cmd = "curl -fsSL -k --compressed --connect-timeout 10 -m 30 \"" + url + "\" | awk -F';' -v pid=\"" + point_id + "\" -v ptype=\"" + point_type_id + "\" -v is_by_date=" + (is_by_date ? "1" : "0") + " -v max_date=\"" + max_date + "\" 'NR == 1 { next } is_by_date && $3 > max_date { exit } !is_by_date && matched && ($1 != pid || $2 != ptype) { exit } $1 == pid && $2 == ptype { print; matched = 1 }' || true";
   
   result_rows->clear();
   std::string cmd_err;
@@ -404,19 +406,19 @@ static bool FetchWeatherReading(const std::string &station_abbr,
   std::string temp_csv, picto_csv, tmin_csv, tmax_csv, dpicto_csv;
   
   printf("MeteoSwiss API: Downloading hourly temperature (tre200h0)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "tre200h0", point_id, point_type_id, max_hourly_str, &temp_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200h0", point_id, point_type_id, true, max_hourly_str, &temp_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading hourly pictograms (jww003i0)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "jww003i0", point_id, point_type_id, max_hourly_str, &picto_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "jww003i0", point_id, point_type_id, false, max_hourly_str, &picto_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading daily min temp (tre200dn)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "tre200dn", point_id, point_type_id, max_daily_str, &tmin_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200dn", point_id, point_type_id, true, max_daily_str, &tmin_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading daily max temp (tre200dx)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "tre200dx", point_id, point_type_id, max_daily_str, &tmax_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200dx", point_id, point_type_id, true, max_daily_str, &tmax_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading daily pictograms (jp2000d0)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "jp2000d0", point_id, point_type_id, max_daily_str, &dpicto_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "jp2000d0", point_id, point_type_id, false, max_daily_str, &dpicto_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Parsing CSV files...\n"); fflush(stdout);
   auto temp_rows = ParseCsvRows(temp_csv);

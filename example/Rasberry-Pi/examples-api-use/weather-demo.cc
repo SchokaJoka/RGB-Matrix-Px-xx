@@ -819,7 +819,7 @@ private:
     DrawWeatherIcon(43 - 8, y_icon, GetWeatherType(reading.tomorrow_code), tick);
     DrawCenteredText(43, y_name, Color(0, 255, 255), "TOMORROW");
     
-    std::string tom_temp = reading.tomorrow_min + "-" + reading.tomorrow_max + "\xc2\xb0" "C";
+    std::string tom_temp = reading.tomorrow_max + "\xc2\xb0" "C";
     DrawCenteredText(43, y_temp, Color(255, 255, 255), tom_temp);
   }
 

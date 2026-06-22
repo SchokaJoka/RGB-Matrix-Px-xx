@@ -96,6 +96,7 @@ static bool RunCommand(const std::string &command, std::string *output,
 
   const int rc = pclose(pipe);
   if (rc != 0) {
+    fprintf(stderr, "Command failed: '%s' with exit code/status: %d\n", command.c_str(), rc);
     *error_message = "curl returned a failure status";
     return false;
   }

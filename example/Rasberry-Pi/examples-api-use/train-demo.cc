@@ -159,7 +159,7 @@ namespace
 
     int wait_counter_ = 0;
     const int wait_frames = 40; // ~2s
-    const int train_width = 17;
+    const int train_width = 28;
 
   public:
     TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
@@ -257,18 +257,16 @@ namespace
     }
     void DrawSteamTrain(int x, int y, bool flipped)
     {
-      const char *sprite[] = {
-    "....WWWWWWWWWW....",
-    "...WWWWWWWWWWWW...",
-    "..WWWWWWWWWWWWWW..",
-    "..WWWW..WWWW..WW..",
-    "..................",
-    "..XXXXXXXXXXXXXX..",
-    ".XXXXXXXXXXXXXXXX.",
-    "XXXXXXXXXXXXXXXXXX",
-    "XXXXXXXXXXXXXXXXXX",
-    "XXRRXXRRXXRRXXRRX",
-    "..................",
+const char *sprite[] = {
+"....WWWWWWWWWWWWWWWWWWWW....",
+"...WWWWWWWWWWWWWWWWWWWWWW...",
+"..WWWWWWWWWWWWWWWWWWWWWWWW..",
+"..WWWW..WWWW..WWWW..WWWW....",
+"..RRRRRRRRRRRRRRRRRRRRRRRR..",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 };
 
       const int h = sizeof(sprite) / sizeof(sprite[0]);

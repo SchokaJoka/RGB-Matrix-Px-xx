@@ -784,23 +784,18 @@ private:
     const int x_base = 0;
     const int x_dest = x_base + 2;
     const int x_time = x_base + 36;
-    const int x_plat = x_time + 23;
 
     int y = clock_font.height() - 2;
 
     // NOW Row
     DrawLineText(x_dest, y, Color(0, 255, 255), "NOW");
     DrawLineText(x_time, y, Color(255, 255, 255), reading.current_temp + " C");
-    DrawLineText(x_plat, y, Color(255, 200, 0),
-                 GetWeatherAbbr(GetWeatherType(reading.current_code)));
 
     y += font_.height() + 1;
 
     // TOMORROW Row
     DrawLineText(x_dest, y, Color(0, 255, 255), "TOMORR");
     DrawLineText(x_time, y, Color(255, 255, 255), reading.tomorrow_min + "-" + reading.tomorrow_max);
-    DrawLineText(x_plat, y, Color(255, 200, 0),
-                 GetWeatherAbbr(GetWeatherType(reading.tomorrow_code)));
 
     // =========================
     // 🌤 WEATHER ICONS (First Panel bottom)
@@ -819,19 +814,6 @@ private:
              lt->tm_min);
 
     return std::string(buf);
-  }
-
-  static std::string GetWeatherAbbr(WeatherType type) {
-    switch (type) {
-      case WEATHER_SUN:       return "SU";
-      case WEATHER_CLOUD:     return "CL";
-      case WEATHER_RAIN:      return "RA";
-      case WEATHER_SUN_CLOUD: return "SC";
-      case WEATHER_SNOW:      return "SN";
-      case WEATHER_THUNDER:   return "TH";
-      case WEATHER_FOG:       return "FO";
-      default:                return "--";
-    }
   }
 
   RGBMatrix *const matrix_;

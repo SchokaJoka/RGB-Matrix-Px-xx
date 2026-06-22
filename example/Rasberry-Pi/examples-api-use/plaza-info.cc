@@ -856,40 +856,86 @@ static void DrawWeatherIcon(FrameCanvas *offscreen, int x, int y, WeatherType ty
   }
 }
 
-static void DrawSteamTrain(FrameCanvas *offscreen, int x, int y, bool flipped) {
+static const rgb_matrix::Color SBB_RED(220, 30, 30);
+static const rgb_matrix::Color SBB_WHITE(240, 240, 240);
+static const rgb_matrix::Color SBB_BLACK(10, 10, 10);
+static const rgb_matrix::Color SBB_GREY(80, 80, 80);
+static const rgb_matrix::Color PANTOGRAPH_GREY(150, 150, 150);
+
+static void DrawGirunoSchnauze(FrameCanvas *canvas, int x, int y, bool flipped) {
   static const char *sprite[] = {
-    "....SSSS.........",
-    "...SSSSSS.SS.....",
-    "..SSSSSSSSSSSS...",
-    "..SSSS..SSSSSSS..",
-    "....XXXX.........",
-    "..XXXXX.XXXXXX...",
-    ".XXXXXXXXXXXXXXX.",
-    "XXWXXXXXXXXXXXXX.",
-    "XXXXXXXXXXXXXXXXX",
-    "XXXXXXXXXXXXXXXX.",
-    "XXRRXXRRXXRRXX...",
-    "................",
-  };
+      "               RRRRRRRRRRRRRRRRRRRRR",
+      "         RRRRRRWWWWWWWWWWWWWWWWWWWWW",
+      "     RRRRWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "   RRWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "  RWWWWWWBBBBWWWWWWWWWWWWWWWWWWWWWWW",
+      "  WWWWWWBBBBWWWWWWWWWWWWWWWWWWWWWWWW",
+      "  WWWWWWWWWWWWWWWWWWWWWWWWBBBBBBBBBB",
+      "  WWWWWWWWWWWWWWWWRRWWWWWWBBBBBBBBBB",
+      "  GGGGGGGGGGGGGGGGRRGGGGGGGGGGGGGGGG",
+      "   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+      "    X X X X X X X X X X X X X X X   ",
+      "     O O                     O O    ",
+      "     O O                     O O    "};
   const int h = sizeof(sprite) / sizeof(sprite[0]);
+  const int width = 36;
+
   for (int row = 0; row < h; ++row) {
-    int width = 17;
     for (int col = 0; col < width; ++col) {
       char pixel = flipped ? sprite[row][width - 1 - col] : sprite[row][col];
+      if (pixel == '\0' || pixel == ' ')
+        continue;
+
+      Color pColor;
       switch (pixel) {
-        case 'X':
-          offscreen->SetPixel(x + col, y + row, 30, 35, 45);
-          break;
-        case 'W':
-          offscreen->SetPixel(x + col, y + row, 180, 240, 255);
-          break;
-        case 'R':
-          offscreen->SetPixel(x + col, y + row, 220, 60, 60);
-          break;
-        case 'S':
-          offscreen->SetPixel(x + col, y + row, 170, 170, 160);
-          break;
+        case 'R': pColor = SBB_RED; break;
+        case 'W': pColor = SBB_WHITE; break;
+        case 'B': pColor = SBB_BLACK; break;
+        case 'G': pColor = SBB_GREY; break;
+        case 'X': pColor = Color(40, 40, 40); break;
+        case 'O': pColor = SBB_BLACK; break;
+        default: continue;
       }
+      canvas->SetPixel(x + col, y + row, pColor.r, pColor.g, pColor.b);
+    }
+  }
+}
+
+static void DrawGirunoMittelwagen(FrameCanvas *canvas, int x, int y) {
+  static const char *sprite[] = {
+      "RRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+      "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "BBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "BBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "GGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+      "GGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+      " X X X X X X X X X X X X X  ",
+      "   O O                 O O  ",
+      "   O O                 O O  "};
+  const int h = sizeof(sprite) / sizeof(sprite[0]);
+  const int width = 28;
+
+  for (int row = 0; row < h; ++row) {
+    for (int col = 0; col < width; ++col) {
+      char pixel = sprite[row][col];
+      if (pixel == '\0' || pixel == ' ')
+        continue;
+
+      Color pColor;
+      switch (pixel) {
+        case 'R': pColor = SBB_RED; break;
+        case 'W': pColor = SBB_WHITE; break;
+        case 'B': pColor = SBB_BLACK; break;
+        case 'G': pColor = SBB_GREY; break;
+        case 'X': pColor = Color(40, 40, 40); break;
+        case 'O': pColor = SBB_BLACK; break;
+        default: continue;
+      }
+      canvas->SetPixel(x + col, y + row, pColor.r, pColor.g, pColor.b);
     }
   }
 }
@@ -994,11 +1040,11 @@ int main(int argc, char *argv[]) {
     WAIT_LEFT
   };
   TrainState train_state = MOVING_RIGHT;
-  int train_x = -20;
-  int train_y = matrix->height() - 12; // 52
+  const int train_total_width = 100;
+  int train_x = -train_total_width;
+  int train_y = matrix->height() - 15; // 49
   int wait_counter = 0;
   const int wait_frames = 40; // 40 * 50ms = 2s
-  const int train_width = 17;
 
   // Main UI update loop
   while (!interrupt_received) {
@@ -1074,8 +1120,8 @@ int main(int argc, char *argv[]) {
       std::string short_err = cur_trains_err.substr(0, 15);
       DrawLineText(offscreen, font, x_base + 2, clock_font.height() + font.height() * 2 + 6, Color(255, 255, 255), short_err);
     } else {
-      // Toggle between departure time and delay every 50 frames (2.5 seconds)
-      bool show_delay_mode = (tick % 100) >= 50;
+      // Toggle between departure time and delay every 300 frames (15 seconds)
+      bool show_delay_mode = (tick % 600) >= 300;
       int y = clock_font.height() - 2; // y = 18
       
       for (size_t i = 0; i < cur_trains.size() && i < 4 && y < 52; i++) {
@@ -1110,15 +1156,18 @@ int main(int argc, char *argv[]) {
     }
 
     // ==========================================
-    // 5. Steam Train (Bottom, y = 52)
+    // 5. SBB Train (Bottom, train_y = 49)
     // ==========================================
-    DrawSteamTrain(offscreen, train_x, train_y, train_state == MOVING_RIGHT);
+    // Draw Giruno (Front-Schnauze, Mittelwagen, Heck-Schnauze)
+    DrawGirunoSchnauze(offscreen, train_x, train_y, true);
+    DrawGirunoMittelwagen(offscreen, train_x + 36, train_y);
+    DrawGirunoSchnauze(offscreen, train_x + 64, train_y, false);
 
     // Update train state machine
     switch (train_state) {
       case MOVING_RIGHT:
         train_x++;
-        if (train_x > matrix->width()) {
+        if (train_x > matrix->width() + 40) {
           train_state = WAIT_RIGHT;
           wait_counter = 0;
         }
@@ -1134,7 +1183,7 @@ int main(int argc, char *argv[]) {
 
       case MOVING_LEFT:
         train_x--;
-        if (train_x < -train_width) {
+        if (train_x < -train_total_width) {
           train_state = WAIT_LEFT;
           wait_counter = 0;
         }
@@ -1144,7 +1193,7 @@ int main(int argc, char *argv[]) {
         wait_counter++;
         if (wait_counter > wait_frames) {
           train_state = MOVING_RIGHT;
-          train_x = -train_width;
+          train_x = -train_total_width;
         }
         break;
     }

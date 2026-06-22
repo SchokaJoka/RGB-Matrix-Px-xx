@@ -20,12 +20,6 @@ using namespace rgb_matrix;
 
 namespace {
 
-// Helper: Convert string to lowercase (JS equivalent: value.toLowerCase())
-static std::string ToLowerCopy(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return value;
-}
 
 // Helper: Convert string to uppercase (JS equivalent: value.toUpperCase())
 static std::string ToUpperCopy(std::string value) {
@@ -284,7 +278,7 @@ static std::vector<std::pair<std::string, std::string>> ParseCsvRows(const std::
 // Helper: Convert YYYYMMDDHHMM UTC date string into epoch time
 static time_t ParseDateToEpoch(const std::string &date_str) {
   if (date_str.length() < 12) return 0;
-  struct tm tm_info = {0};
+  struct tm tm_info = {};
   tm_info.tm_year = atoi(date_str.substr(0, 4).c_str()) - 1900;
   tm_info.tm_mon = atoi(date_str.substr(4, 2).c_str()) - 1;
   tm_info.tm_mday = atoi(date_str.substr(6, 2).c_str());
@@ -389,6 +383,10 @@ static bool FetchWeatherReading(const std::string &station_abbr,
   reading->tomorrow_min = tmin_val;
   reading->tomorrow_max = tmax_val;
   reading->tomorrow_code = dpicto_val;
+  
+  printf("Parsed weather: temp=%s, time=%s, code=%s, tmin=%s, tmax=%s, dcode=%s\n",
+         reading->current_temp.c_str(), reading->current_time.c_str(), reading->current_code.c_str(),
+         reading->tomorrow_min.c_str(), reading->tomorrow_max.c_str(), reading->tomorrow_code.c_str());
   
   return true;
 }

@@ -241,8 +241,8 @@ namespace
       const int x_base = matrix_->width() - panel_width;
 
       const int x_dest = x_base + 2;
-      const int x_time = x_base + 35;
-      const int x_plat = x_time + 21;
+      const int x_time = x_base + 36;
+      const int x_plat = x_time + 23;
       DrawSteamTrain(
           matrix_->width() * 3 / 4 - 8,
           matrix_->height() - 12);

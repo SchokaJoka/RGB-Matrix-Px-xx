@@ -309,7 +309,7 @@ namespace
       // =========================
       // 🚆 ZUGLIST START (mehr Abstand nach Uhr)
       // =========================
-      int y = clock_font.height() + 2;
+      int y = clock_font.height() - 2;
 
       for (size_t i = 0; i < trains.size() && y < matrix_->height(); i++)
       {

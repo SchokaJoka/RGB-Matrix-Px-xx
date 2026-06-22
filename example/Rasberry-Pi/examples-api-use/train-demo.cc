@@ -258,19 +258,18 @@ namespace
     void DrawSteamTrain(int x, int y, bool flipped)
     {
       const char *sprite[] = {
-          "....SSSS.........",
-          "...SSSSSS.SS.....",
-          "..SSSSSSSSSSSS...",
-          "..SSSS..SSSSSSS..",
-          "....XXXX.........",
-          "..XXXXX.XXXXXX...",
-          ".XXXXXXXXXXXXXXX.",
-          "XXWXXXXXXXXXXXXX.",
-          "XXXXXXXXXXXXXXXXX",
-          "XXXXXXXXXXXXXXXX.",
-          "XXRRXXRRXXRRXX...",
-          "................",
-      };
+    "....WWWWWWWWWW....",
+    "...WWWWWWWWWWWW...",
+    "..WWWWWWWWWWWWWW..",
+    "..WWWW..WWWW..WW..",
+    "..................",
+    "..XXXXXXXXXXXXXX..",
+    ".XXXXXXXXXXXXXXXX.",
+    "XXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXX",
+    "XXRRXXRRXXRRXXRRX",
+    "..................",
+};
 
       const int h = sizeof(sprite) / sizeof(sprite[0]);
 

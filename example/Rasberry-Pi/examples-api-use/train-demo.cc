@@ -20,6 +20,11 @@ using namespace rgb_matrix;
 namespace
 {
 
+  static const rgb_matrix::Color SBB_RED(220, 30, 30);
+  static const rgb_matrix::Color SBB_WHITE(240, 240, 240);
+  static const rgb_matrix::Color SBB_BLACK(10, 10, 10);
+  static const rgb_matrix::Color SBB_GREY(80, 80, 80);
+  static const rgb_matrix::Color PANTOGRAPH_GREY(150, 150, 150);
   static bool RunCommand(const std::string &command, std::string *output,
                          std::string *error_message)
   {
@@ -147,6 +152,7 @@ namespace
     int train_x_ = 0;
     int train_y_ = 0;
     bool train_moving_right_ = true;
+    const int train_total_width = 70;
     enum TrainState
     {
       MOVING_RIGHT,
@@ -201,10 +207,8 @@ namespace
       bool ok = FetchTrainData(station_abbr_, &trains, &error);
 
       train_animating_ = true;
-      train_x_ = -20;
-      train_y_ = matrix_->height() - 12;
-
-      const int train_width = 17;
+      train_x_ = -train_total_width; // Start komplett links außerhalb
+      train_y_ = matrix_->height() - 15;
 
       while (!interrupt_received)
       {
@@ -215,8 +219,7 @@ namespace
         {
         case MOVING_RIGHT:
           train_x_++;
-
-          if (train_x_ > matrix_->width())
+          if (train_x_ > matrix_->width() + 10) // Puffer, damit auch der Wagen das Bild verlässt
           {
             train_state_ = WAIT_RIGHT;
             wait_counter_ = 0;
@@ -228,14 +231,13 @@ namespace
           if (wait_counter_ > wait_frames)
           {
             train_state_ = MOVING_LEFT;
-            train_x_ = matrix_->width(); // Start rechts außerhalb
+            train_x_ = matrix_->width() + 40; // Start rechts außerhalb (inklusive Wagenabstand)
           }
           break;
 
         case MOVING_LEFT:
           train_x_--;
-
-          if (train_x_ < -train_width)
+          if (train_x_ < -train_total_width) 
           {
             train_state_ = WAIT_LEFT;
             wait_counter_ = 0;
@@ -247,7 +249,7 @@ namespace
           if (wait_counter_ > wait_frames)
           {
             train_state_ = MOVING_RIGHT;
-            train_x_ = -train_width; // Start links außerhalb
+            train_x_ = -train_total_width; // Zurück zum Anfang links
           }
           break;
         }
@@ -257,18 +259,18 @@ namespace
     }
     void DrawSteamTrain(int x, int y, bool flipped)
     {
-const char *sprite[] = {
-"....WWWWWWWWWW....WWWWWWWWWW....WWWWWWWWWW....",
-"...WWWWWWWWWWWW..WWWWWWWWWWWW..WWWWWWWWWWWW...",
-"..WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..",
-"..WWWW..WWWW..WWWW||WWWW..WWWW..WWWW||WWWW....",
-"..RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR..",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-};
+      const char *sprite[] = {
+          "....WWWWWWWWWW....WWWWWWWWWW....WWWWWWWWWW....",
+          "...WWWWWWWWWWWW..WWWWWWWWWWWW..WWWWWWWWWWWW...",
+          "..WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..",
+          "..WWWW..WWWW..WWWW||WWWW..WWWW..WWWW||WWWW....",
+          "..RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR..",
+          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      };
       const int h = sizeof(sprite) / sizeof(sprite[0]);
 
       for (int row = 0; row < h; ++row)
@@ -299,6 +301,120 @@ const char *sprite[] = {
         }
       }
     }
+    // --- SBB Re 460 Lokomotive (mit Richtungs-Flipping) ---
+    void DrawRe460Lok(FrameCanvas *canvas, int x, int y, bool flipped)
+    {
+      const char *sprite[] = {
+          "      PPPPPP      ",
+          "     P      P     ",
+          "    P        P    ",
+          "  RRRRRRRRRRRRRR  ",
+          " RRRRRRRRRRRRRRRR ",
+          "RWWWWWWWWWWWWWWWW R",
+          "RWBBBBBBWBBBBBBW RR",
+          "RWBBBBBBWBBBBBBW RR",
+          "RWWWWWWWWWWWWWWWW R",
+          " RRRRRRRRRRRRRRRR ",
+          "  X X X X X X X X  ",
+          "   O O       O O   ",
+          "   O O       O O   "};
+      const int h = sizeof(sprite) / sizeof(sprite[0]);
+      const int width = 19; // Tatsächliche Zeichenbreite im Array ermitteln
+
+      for (int row = 0; row < h; ++row)
+      {
+        for (int col = 0; col < width; ++col)
+        {
+          // Wenn flipped true ist, lesen wir die Spalte von rechts nach links
+          char pixel = flipped ? sprite[row][width - 1 - col] : sprite[row][col];
+          if (pixel == '\0' || pixel == ' ')
+            continue;
+
+          Color pColor;
+          switch (pixel)
+          {
+          case 'R':
+            pColor = SBB_RED;
+            break;
+          case 'W':
+            pColor = SBB_WHITE;
+            break;
+          case 'B':
+            pColor = SBB_BLACK;
+            break;
+          case 'P':
+            pColor = PANTOGRAPH_GREY;
+            break;
+          case 'X':
+            pColor = SBB_GREY;
+            break;
+          case 'O':
+            pColor = SBB_BLACK;
+            break;
+          default:
+            continue;
+          }
+          canvas->SetPixel(x + col, y + row, pColor.r, pColor.g, pColor.b);
+        }
+      }
+    }
+
+    // --- SBB IC2000 Wagen (mit Richtungs-Flipping) ---
+    void DrawIC2000Wagen(FrameCanvas *canvas, int x, int y, bool flipped)
+    {
+      const char *sprite[] = {
+          "  SSSSSSSSSSSSSSSSSSSSSSSSSSSS  ",
+          " SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS ",
+          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
+          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
+          "SWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW S",
+          "SWRRRRRWWWRRRRRWWWRRRRRWWWRRRRW S",
+          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
+          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
+          "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS S",
+          " SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS ",
+          "  X X X X X X X X X X X X X X  ",
+          "   O O                   O O   ",
+          "   O O                   O O   "};
+      const int h = sizeof(sprite) / sizeof(sprite[0]);
+      const int width = 33;
+
+      for (int row = 0; row < h; ++row)
+      {
+        for (int col = 0; col < width; ++col)
+        {
+          char pixel = flipped ? sprite[row][width - 1 - col] : sprite[row][col];
+          if (pixel == '\0' || pixel == ' ')
+            continue;
+
+          Color pColor;
+          switch (pixel)
+          {
+          case 'S':
+            pColor = SBB_WHITE;
+            break;
+          case 'B':
+            pColor = SBB_BLACK;
+            break;
+          case 'W':
+            pColor = SBB_WHITE;
+            break;
+          case 'R':
+            pColor = SBB_RED;
+            break;
+          case 'X':
+            pColor = SBB_GREY;
+            break;
+          case 'O':
+            pColor = SBB_BLACK;
+            break;
+          default:
+            continue;
+          }
+          canvas->SetPixel(x + col, y + row, pColor.r, pColor.g, pColor.b);
+        }
+      }
+    }
 
   private:
     void DrawLineText(int x, int y, const Color &color, const std::string &text)
@@ -315,7 +431,21 @@ const char *sprite[] = {
       offscreen_->Fill(0, 0, 0);
       if (train_animating_)
       {
-       DrawSteamTrain(train_x_, train_y_, train_state_ == MOVING_RIGHT);
+        int train_base_y = matrix_->height() - 15;
+        bool is_moving_left = (train_state_ == MOVING_LEFT);
+
+        if (!is_moving_left)
+        {
+          // Bewegung nach RECHTS: Lok fährt voran (rechts), Wagen hängt hinten an (links)
+          DrawRe460Lok(offscreen_, train_x_, train_base_y, false);
+          DrawIC2000Wagen(offscreen_, train_x_ - 35, train_base_y, false);
+        }
+        else
+        {
+          // Bewegung nach LINKS: Lok fährt voran (links gedreht), Wagen hängt rechts dran
+          DrawRe460Lok(offscreen_, train_x_, train_base_y, true);
+          DrawIC2000Wagen(offscreen_, train_x_ + 21, train_base_y, true);
+        }
       }
       // =========================
       // 🕒 GROSSE UHR OBEN

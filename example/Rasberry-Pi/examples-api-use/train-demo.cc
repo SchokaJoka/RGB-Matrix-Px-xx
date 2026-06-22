@@ -138,7 +138,42 @@ namespace
 
     return !out->empty();
   }
-  void DrawSteamTrain(int x, int y)
+
+  class TrainStationBoardDemo : public DemoRunner
+  {
+    bool show_delay_mode = false;
+
+  public:
+    TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
+        : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr)
+    {
+      offscreen_ = matrix_->CreateFrameCanvas();
+      font_file_ = "../fonts/4x6.bdf";
+      if (!font_.LoadFont(font_file_.c_str()))
+      {
+        fprintf(stderr, "Couldn't load font '%s'\n", font_file_.c_str());
+      }
+    }
+
+    void Run() override
+    {
+      while (!interrupt_received)
+      {
+
+        std::vector<TrainDeparture> trains;
+        std::string error;
+
+        bool ok = FetchTrainData(station_abbr_, &trains, &error);
+
+        RenderFrame(ok, trains, error, show_delay_mode);
+
+        offscreen_ = matrix_->SwapOnVSync(offscreen_);
+
+        show_delay_mode = !show_delay_mode; // toggle every cycle
+        sleep(10);                          // 15 seconds instead of 30
+      }
+    }
+ void DrawSteamTrain(int x, int y)
   {
     // Legende:
     // X = schwarz/dunkelgrau
@@ -185,42 +220,6 @@ namespace
       }
     }
   }
-
-  class TrainStationBoardDemo : public DemoRunner
-  {
-    bool show_delay_mode = false;
-
-  public:
-    TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
-        : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr)
-    {
-      offscreen_ = matrix_->CreateFrameCanvas();
-      font_file_ = "../fonts/4x6.bdf";
-      if (!font_.LoadFont(font_file_.c_str()))
-      {
-        fprintf(stderr, "Couldn't load font '%s'\n", font_file_.c_str());
-      }
-    }
-
-    void Run() override
-    {
-      while (!interrupt_received)
-      {
-
-        std::vector<TrainDeparture> trains;
-        std::string error;
-
-        bool ok = FetchTrainData(station_abbr_, &trains, &error);
-
-        RenderFrame(ok, trains, error, show_delay_mode);
-
-        offscreen_ = matrix_->SwapOnVSync(offscreen_);
-
-        show_delay_mode = !show_delay_mode; // toggle every cycle
-        sleep(10);                          // 15 seconds instead of 30
-      }
-    }
-
   private:
     void DrawLineText(int x, int y, const Color &color, const std::string &text)
     {

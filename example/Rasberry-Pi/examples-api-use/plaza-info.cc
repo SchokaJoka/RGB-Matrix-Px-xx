@@ -1159,9 +1159,9 @@ int main(int argc, char *argv[]) {
     // 5. SBB Train (Bottom, train_y = 49)
     // ==========================================
     // Draw Giruno (Front-Schnauze, Mittelwagen, Heck-Schnauze)
-    DrawGirunoSchnauze(offscreen, train_x, train_y, true);
+    DrawGirunoSchnauze(offscreen, train_x, train_y, false);
     DrawGirunoMittelwagen(offscreen, train_x + 36, train_y);
-    DrawGirunoSchnauze(offscreen, train_x + 64, train_y, false);
+    DrawGirunoSchnauze(offscreen, train_x + 64, train_y, true);
 
     // Update train state machine
     switch (train_state) {

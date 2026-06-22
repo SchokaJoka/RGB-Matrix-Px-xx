@@ -1120,8 +1120,8 @@ int main(int argc, char *argv[]) {
       std::string short_err = cur_trains_err.substr(0, 15);
       DrawLineText(offscreen, font, x_base + 2, clock_font.height() + font.height() * 2 + 6, Color(255, 255, 255), short_err);
     } else {
-      // Toggle between departure time and delay every 300 frames (15 seconds)
-      bool show_delay_mode = (tick % 600) >= 300;
+      // Toggle between departure time and delay every 200 frames (10 seconds)
+      bool show_delay_mode = (tick % 400) >= 200;
       int y = clock_font.height() - 2; // y = 18
       
       for (size_t i = 0; i < cur_trains.size() && i < 4 && y < 52; i++) {

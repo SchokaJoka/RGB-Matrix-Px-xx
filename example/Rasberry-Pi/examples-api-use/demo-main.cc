@@ -1340,7 +1340,7 @@ int main(int argc, char *argv[]) {
     case 13:
       demo_runner = CreateMeteoSwissWeather(matrix,
                                             demo_parameter ? demo_parameter
-                                                           : "BAS");
+                                                           : "LUZ");
       break; case 14:
       demo_runner = CreateTrainDemo(matrix,"Emmenbrücke");
       break;

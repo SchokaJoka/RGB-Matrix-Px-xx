@@ -265,7 +265,7 @@ namespace
                      bool show_delay_mode)
     {
       offscreen_->Fill(0, 0, 0);
-
+DrawSteamTrain(20, 20);
       // =========================
       // 🕒 GROSSE UHR OBEN
       // =========================

@@ -293,42 +293,38 @@ static void MapAbbrToInfo(const std::string &abbr,
                           std::string *train_station_query) {
   std::string upper = ToUpperCopy(abbr);
   
+  // SBB Train departures are always hardcoded to Emmenbrücke
+  *train_station_query = "Emmenbrücke";
+  
   // Default values: Lucerne fallback
   *weather_point_id = "68";
   *weather_point_type_id = "1";
   *weather_display_name = "Luzern";
-  *train_station_query = abbr;
   
   if (upper == "LUZ") {
     *weather_point_id = "68";
     *weather_point_type_id = "1";
     *weather_display_name = "Luzern";
-    *train_station_query = "Luzern";
   } else if (upper == "BAS") {
     *weather_point_id = "75";
     *weather_point_type_id = "1";
     *weather_display_name = "Basel";
-    *train_station_query = "Basel";
   } else if (upper == "BER") {
     *weather_point_id = "78";
     *weather_point_type_id = "1";
     *weather_display_name = "Bern";
-    *train_station_query = "Bern";
   } else if (upper == "ZRH" || upper == "ZEH" || upper == "SMA") {
     *weather_point_id = "71";
     *weather_point_type_id = "1";
     *weather_display_name = "Zurich";
-    *train_station_query = "Zurich";
   } else if (upper == "GVE") {
     *weather_point_id = "58";
     *weather_point_type_id = "1";
     *weather_display_name = "Geneva";
-    *train_station_query = "Geneva";
   } else if (upper == "LUG") {
     *weather_point_id = "47";
     *weather_point_type_id = "1";
     *weather_display_name = "Lugano";
-    *train_station_query = "Lugano";
   } else {
     bool is_digits = true;
     for (char c : upper) {
@@ -343,7 +339,6 @@ static void MapAbbrToInfo(const std::string &abbr,
         *weather_point_type_id = "1";
       }
       *weather_display_name = "POI " + upper;
-      *train_station_query = upper;
     }
   }
 }

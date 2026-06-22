@@ -179,31 +179,31 @@ namespace
       return std::string(buf);
     }
 
-    void Run() override
+ void Run() override
+{
+    std::vector<TrainDeparture> trains;
+    std::string error;
+
+    bool ok = FetchTrainData(station_abbr_, &trains, &error);
+
+    train_animating_ = true;
+    train_x_ = -20;
+    train_y_ = 20;
+
+    while (!interrupt_received)
     {
-
-      while (!interrupt_received)
-      {
-
-        std::vector<TrainDeparture> trains;
-        std::string error;
-
-        bool ok = FetchTrainData(station_abbr_, &trains, &error);
-
-        if (ok)
-        {
-          train_animating_ = true;
-          train_x_ = -20; // Start links außerhalb
-          train_y_ = matrix_->height() - 12;
-        }
         RenderFrame(ok, trains, error, show_delay_mode);
 
         offscreen_ = matrix_->SwapOnVSync(offscreen_);
 
-        show_delay_mode = !show_delay_mode; // toggle every cycle
-        sleep(10);                          // 15 seconds instead of 30
-      }
+        train_x_++;
+
+        if (train_x_ > matrix_->width())
+            train_x_ = -20;
+
+        usleep(50000); // 20 FPS
     }
+}
     void DrawSteamTrain(int x, int y)
     {
       // Legende:
@@ -265,7 +265,10 @@ namespace
                      bool show_delay_mode)
     {
       offscreen_->Fill(0, 0, 0);
-DrawSteamTrain(20, 20);
+if (train_animating_)
+{
+    DrawSteamTrain(train_x_, train_y_);
+}
       // =========================
       // 🕒 GROSSE UHR OBEN
       // =========================
@@ -296,17 +299,6 @@ DrawSteamTrain(20, 20);
       const int x_time = x_base + 36;
       const int x_plat = x_time + 23;
 
-      if (ok && !train_animating_)
-      {
-        train_animating_ = true;
-        train_x_ = -20;
-        train_y_ = matrix_->height() - 12;
-      }
-
-      if (train_animating_)
-      {
-        DrawSteamTrain(train_x_, train_y_);
-      }
       // =========================
       // ❌ ERROR STATE
       // =========================

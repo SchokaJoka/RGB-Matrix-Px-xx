@@ -15,11 +15,50 @@
 #include <string>    // C++ string class (like JS String)
 #include <unistd.h>  // Unix system calls (like sleep/usleep)
 #include <vector>    // dynamic arrays (like JS Array/List)
+#include <termios.h>
+#include <fcntl.h>
+#include <sys/select.h>
 
 using namespace rgb_matrix;
 
 namespace {
 
+struct TerminalRawMode {
+  bool active;
+  struct termios orig_termios;
+
+  TerminalRawMode() : active(false) {}
+
+  void Enable() {
+    if (active) return;
+    if (tcgetattr(STDIN_FILENO, &orig_termios) == 0) {
+      struct termios raw = orig_termios;
+      raw.c_lflag &= ~(ICANON | ECHO);
+      raw.c_cc[VMIN] = 1;
+      raw.c_cc[VTIME] = 0;
+      tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+      active = true;
+    }
+  }
+
+  void Disable() {
+    if (!active) return;
+    tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+    active = false;
+  }
+
+  ~TerminalRawMode() {
+    Disable();
+  }
+};
+
+static bool IsStdinReady() {
+  fd_set fds;
+  FD_ZERO(&fds);
+  FD_SET(STDIN_FILENO, &fds);
+  struct timeval tv = {0, 0};
+  return select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv) > 0;
+}
 
 // Helper: Convert string to uppercase (JS equivalent: value.toUpperCase())
 static std::string ToUpperCopy(std::string value) {
@@ -461,6 +500,11 @@ class MeteoSwissWeather : public DemoRunner {
 public:
   MeteoSwissWeather(RGBMatrix *matrix, const std::string &station_abbr)
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
+    if (station_abbr_ == "DEV") {
+      dev_index_ = 0;
+    } else {
+      dev_index_ = -1;
+    }
     setvbuf(stdout, NULL, _IONBF, 0); // Turn off stdout buffering
     offscreen_ = matrix_->CreateFrameCanvas();
     font_file_ = "../fonts/4x6.bdf";
@@ -479,10 +523,46 @@ public:
     std::string error_message;
     bool ok = false;
 
+    if (dev_index_ != -1) {
+      term_mode_.Enable();
+      printf("\n*** WEATHER DEMO DEV MODE ACTIVE ***\n");
+      printf("Use standard terminal controls to view all weather pictograms:\n");
+      printf("  - Press [SPACE], [ENTER], or [N] key to cycle to the NEXT pictogram.\n");
+      printf("  - Press [P] key to cycle to the PREVIOUS pictogram.\n");
+      printf("  - Press [CTRL-C] in terminal to quit.\n\n");
+      printf("Displaying: left = SUN, right = CLOUD\n");
+      fflush(stdout);
+      ok = true;
+    }
+
     while (!interrupt_received) {
-      if (tick >= 6000) { // Fetch every 10 minutes (6000 * 100ms)
-        ok = FetchWeatherReading(station_abbr_, &reading, &error_message);
-        tick = 0;
+      if (dev_index_ != -1) {
+        // Handle keyboard input in dev mode
+        if (IsStdinReady()) {
+          char ch;
+          if (read(STDIN_FILENO, &ch, 1) > 0) {
+            bool changed = false;
+            if (ch == ' ' || ch == '\n' || ch == '\r' || ch == 'n' || ch == 'N') {
+              dev_index_ = (dev_index_ + 1) % 7;
+              changed = true;
+            } else if (ch == 'p' || ch == 'P') {
+              dev_index_ = (dev_index_ - 1 + 7) % 7;
+              changed = true;
+            }
+            
+            if (changed) {
+              const char *names[] = {"SUN", "CLOUD", "RAIN", "PARTLY", "SNOW", "STORM", "FOG"};
+              printf("Displaying: left = %s, right = %s\n",
+                     names[dev_index_], names[(dev_index_ + 1) % 7]);
+              fflush(stdout);
+            }
+          }
+        }
+      } else {
+        if (tick >= 6000) { // Fetch every 10 minutes (6000 * 100ms)
+          ok = FetchWeatherReading(station_abbr_, &reading, &error_message);
+          tick = 0;
+        }
       }
       
       // Render screen (Toggle between NOW and TOMORROW every 2.5s if narrow)
@@ -491,6 +571,12 @@ public:
       
       usleep(100 * 1000); // Sleep for 100ms
       tick++;
+    }
+
+    if (dev_index_ != -1) {
+      term_mode_.Disable();
+      printf("\n*** WEATHER DEMO DEV MODE DEACTIVATED ***\n");
+      fflush(stdout);
     }
   }
 
@@ -791,6 +877,36 @@ private:
              current_time.c_str());
 
     // =========================
+    // 🛠️ DEV MODE OVERRIDE
+    // =========================
+    if (dev_index_ != -1) {
+      const char *WeatherTypeNames[] = {
+        "SUN",
+        "CLOUD",
+        "RAIN",
+        "PARTLY",
+        "SNOW",
+        "STORM",
+        "FOG"
+      };
+      const int y_icon = 17;
+      const int y_name = 31;
+      const int y_temp = 38;
+
+      // NOW Column (centered at x = 12)
+      DrawWeatherIcon(12 - 8, y_icon, (WeatherType)dev_index_, tick);
+      DrawCenteredText(12, y_name, Color(0, 255, 255), WeatherTypeNames[dev_index_]);
+      DrawCenteredText(12, y_temp, Color(255, 255, 255), "DEV");
+
+      // TOMORROW Column (centered at x = 43)
+      int next_idx = (dev_index_ + 1) % 7;
+      DrawWeatherIcon(43 - 8, y_icon, (WeatherType)next_idx, tick);
+      DrawCenteredText(43, y_name, Color(0, 255, 255), WeatherTypeNames[next_idx]);
+      DrawCenteredText(43, y_temp, Color(255, 255, 255), "MODE");
+      return;
+    }
+
+    // =========================
     // ❌ ERROR STATE
     // =========================
     if (!ok) {
@@ -841,6 +957,8 @@ private:
   std::string font_file_;
   Font font_;
   Font clock_font;
+  int dev_index_;
+  TerminalRawMode term_mode_;
 };
 
 }  // namespace

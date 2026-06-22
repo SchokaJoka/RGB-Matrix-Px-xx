@@ -893,16 +893,16 @@ private:
       const int y_name = 31;
       const int y_temp = 38;
 
-      // NOW Column (centered at x = 14)
-      DrawWeatherIcon(14 - 8, y_icon, (WeatherType)dev_index_, tick);
-      DrawCenteredText(14, y_name, Color(0, 255, 255), WeatherTypeNames[dev_index_]);
-      DrawCenteredText(14, y_temp, Color(255, 255, 255), "DEV");
+      // NOW Column (centered at x = 16)
+      DrawWeatherIcon(16 - 8, y_icon, (WeatherType)dev_index_, tick);
+      DrawCenteredText(16, y_name, Color(0, 255, 255), WeatherTypeNames[dev_index_]);
+      DrawCenteredText(16, y_temp, Color(255, 255, 255), "DEV");
 
-      // TOMORROW Column (centered at x = 44)
+      // TOMORROW Column (centered at x = 48)
       int next_idx = (dev_index_ + 1) % 7;
-      DrawWeatherIcon(44 - 8, y_icon, (WeatherType)next_idx, tick);
-      DrawCenteredText(44, y_name, Color(0, 255, 255), WeatherTypeNames[next_idx]);
-      DrawCenteredText(44, y_temp, Color(255, 255, 255), "MODE");
+      DrawWeatherIcon(48 - 8, y_icon, (WeatherType)next_idx, tick);
+      DrawCenteredText(48, y_name, Color(0, 255, 255), WeatherTypeNames[next_idx]);
+      DrawCenteredText(48, y_temp, Color(255, 255, 255), "MODE");
       return;
     }
 
@@ -926,17 +926,17 @@ private:
     const int y_name = 30;
     const int y_temp = 38;
 
-    // NOW Column (centered at x = 14)
-    DrawWeatherIcon(14 - 8, y_icon, GetWeatherType(reading.current_code), tick);
-    DrawCenteredText(14, y_name, Color(0, 255, 255), "HEUTE");
-    DrawCenteredText(14, y_temp, Color(255, 255, 255), reading.current_temp + "\xc2\xb0" "C");
+    // NOW Column (centered at x = 16)
+    DrawWeatherIcon(16 - 8, y_icon, GetWeatherType(reading.current_code), tick);
+    DrawCenteredText(16, y_name, Color(0, 255, 255), "HEUTE");
+    DrawCenteredText(16, y_temp, Color(255, 255, 255), reading.current_temp + "\xc2\xb0" "C");
 
-    // TOMORROW Column (centered at x = 44)
-    DrawWeatherIcon(44 - 8, y_icon, GetWeatherType(reading.tomorrow_code), tick);
-    DrawCenteredText(44, y_name, Color(0, 255, 255), "MORGEN");
+    // TOMORROW Column (centered at x = 48)
+    DrawWeatherIcon(48 - 8, y_icon, GetWeatherType(reading.tomorrow_code), tick);
+    DrawCenteredText(48, y_name, Color(0, 255, 255), "MORGEN");
     
     std::string tom_temp = reading.tomorrow_max + "\xc2\xb0" "C";
-    DrawCenteredText(44, y_temp, Color(255, 255, 255), tom_temp);
+    DrawCenteredText(48, y_temp, Color(255, 255, 255), tom_temp);
   }
 
   static std::string GetCurrentTime() {

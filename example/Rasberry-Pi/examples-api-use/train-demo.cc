@@ -218,7 +218,7 @@ namespace
         {
         case MOVING_RIGHT:
           train_x_++;
-          if (train_x_ > matrix_->width() + 10) 
+          if (train_x_ > matrix_->width() + 40) 
           {
             train_state_ = WAIT_RIGHT;
             wait_counter_ = 0;
@@ -366,22 +366,22 @@ namespace
         if (!is_moving_left)
         {
           // --- ZUG FÄHRT NACH RECHTS --->
-          // Heck-Schnauze (nach links gedreht)
-          DrawGirunoSchnauze(offscreen_, train_x_, train_base_y, true);
-          // Mittelwagen
+          // Heck: Muss nach links schauen (Standard/unflipped)
+          DrawGirunoSchnauze(offscreen_, train_x_, train_base_y, false);
+          // Mitte
           DrawGirunoMittelwagen(offscreen_, train_x_ + 36, train_base_y);
-          // Front-Schnauze (nach rechts gedreht)
-          DrawGirunoSchnauze(offscreen_, train_x_ + 36 + 28, train_base_y, false);
+          // Front: Muss nach rechts schauen (gespiegelt/flipped)
+          DrawGirunoSchnauze(offscreen_, train_x_ + 36 + 28, train_base_y, true);
         }
         else
         {
           // <--- ZUG FÄHRT NACH LINKS ---
-          // Front-Schnauze (nach links gedreht)
-          DrawGirunoSchnauze(offscreen_, train_x_, train_base_y, true);
-          // Mittelwagen
+          // Front: Muss nach links schauen (Standard/unflipped)
+          DrawGirunoSchnauze(offscreen_, train_x_, train_base_y, false);
+          // Mitte
           DrawGirunoMittelwagen(offscreen_, train_x_ + 36, train_base_y);
-          // Heck-Schnauze (nach rechts gedreht)
-          DrawGirunoSchnauze(offscreen_, train_x_ + 36 + 28, train_base_y, false);
+          // Heck: Muss nach rechts schauen (gespiegelt/flipped)
+          DrawGirunoSchnauze(offscreen_, train_x_ + 36 + 28, train_base_y, true);
         }
       }
       

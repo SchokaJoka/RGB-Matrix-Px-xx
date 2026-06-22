@@ -248,11 +248,12 @@ static bool DiscoverLatestRun(std::string *item_id, std::string *latest_run, std
 // Helper: Fetch a single parameter's filtered row(s) from the STAC asset
 static bool FetchParameterRow(const std::string &item_id, const std::string &latest_run,
                               const std::string &param, const std::string &point_id,
-                              const std::string &point_type_id, std::string *result_rows,
-                              std::string *error_message) {
+                              const std::string &point_type_id, const std::string &max_date,
+                              std::string *result_rows, std::string *error_message) {
   std::string url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting/" + item_id + "/vnut12.lssw." + latest_run + "." + param + ".csv";
-  // Pipe through grep and force successful exit code so RunCommand doesn't fail on empty search matches
-  std::string cmd = "curl -fsSL -k --compressed --connect-timeout 10 -m 30 \"" + url + "\" | grep \"^" + point_id + ";" + point_type_id + ";\" || true";
+  // Use awk to stop fetching as soon as the Date column exceeds max_date.
+  // Since the CSV is sorted by Date first, this stops the curl download immediately when we reach max_date.
+  std::string cmd = "curl -fsSL -k --compressed --connect-timeout 10 -m 30 \"" + url + "\" | awk -F';' -v pid=\"" + point_id + "\" -v ptype=\"" + point_type_id + "\" -v max_date=\"" + max_date + "\" 'NR == 1 { print; next } $3 > max_date { exit } $1 == pid && $2 == ptype { print }' || true";
   
   result_rows->clear();
   std::string cmd_err;
@@ -368,22 +369,54 @@ static bool FetchWeatherReading(const std::string &station_abbr,
   printf("MeteoSwiss API: Found latest run=%s in item=%s\n", latest_run.c_str(), item_id.c_str());
   fflush(stdout);
   
+  // Calculate date variables first
+  time_t now = time(NULL);
+  
+  // Find current UTC hour string
+  struct tm *utc_now = gmtime(&now);
+  char cur_utc[16];
+  snprintf(cur_utc, sizeof(cur_utc), "%04d%02d%02d%02d00",
+           utc_now->tm_year + 1900, utc_now->tm_mon + 1, utc_now->tm_mday, utc_now->tm_hour);
+  std::string target_utc_str(cur_utc);
+  
+  // Calculate max date threshold for hourly parameters (current UTC + 6 hours)
+  time_t max_hourly_time = now + 6 * 3600;
+  struct tm *utc_max_hourly = gmtime(&max_hourly_time);
+  char max_hourly_buf[16];
+  snprintf(max_hourly_buf, sizeof(max_hourly_buf), "%04d%02d%02d%02d00",
+           utc_max_hourly->tm_year + 1900, utc_max_hourly->tm_mon + 1, utc_max_hourly->tm_mday, utc_max_hourly->tm_hour);
+  std::string max_hourly_str(max_hourly_buf);
+  
+  // Find tomorrow's local date string
+  time_t tomorrow = now + 24 * 3600;
+  struct tm *local_tomorrow = localtime(&tomorrow);
+  char tom_local[16];
+  strftime(tom_local, sizeof(tom_local), "%Y%m%d0000", local_tomorrow);
+  std::string target_tom_str(tom_local);
+
+  // Calculate max date threshold for daily parameters (current local time + 48 hours)
+  time_t max_daily_time = now + 48 * 3600;
+  struct tm *local_max_daily = localtime(&max_daily_time);
+  char max_daily_buf[16];
+  strftime(max_daily_buf, sizeof(max_daily_buf), "%Y%m%d0000", local_max_daily);
+  std::string max_daily_str(max_daily_buf);
+
   std::string temp_csv, picto_csv, tmin_csv, tmax_csv, dpicto_csv;
   
   printf("MeteoSwiss API: Downloading hourly temperature (tre200h0)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "tre200h0", point_id, point_type_id, &temp_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200h0", point_id, point_type_id, max_hourly_str, &temp_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading hourly pictograms (jww003i0)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "jww003i0", point_id, point_type_id, &picto_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "jww003i0", point_id, point_type_id, max_hourly_str, &picto_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading daily min temp (tre200dn)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "tre200dn", point_id, point_type_id, &tmin_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200dn", point_id, point_type_id, max_daily_str, &tmin_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading daily max temp (tre200dx)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "tre200dx", point_id, point_type_id, &tmax_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200dx", point_id, point_type_id, max_daily_str, &tmax_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Downloading daily pictograms (jp2000d0)...\n"); fflush(stdout);
-  if (!FetchParameterRow(item_id, latest_run, "jp2000d0", point_id, point_type_id, &dpicto_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "jp2000d0", point_id, point_type_id, max_daily_str, &dpicto_csv, error_message)) return false;
   
   printf("MeteoSwiss API: Parsing CSV files...\n"); fflush(stdout);
   auto temp_rows = ParseCsvRows(temp_csv);
@@ -397,21 +430,6 @@ static bool FetchWeatherReading(const std::string &station_abbr,
     printf("MeteoSwiss API: Parse failed: empty rows\n"); fflush(stdout);
     return false;
   }
-  
-  // Find current UTC hour string
-  time_t now = time(NULL);
-  struct tm *utc_now = gmtime(&now);
-  char cur_utc[16];
-  snprintf(cur_utc, sizeof(cur_utc), "%04d%02d%02d%02d00",
-           utc_now->tm_year + 1900, utc_now->tm_mon + 1, utc_now->tm_mday, utc_now->tm_hour);
-  std::string target_utc_str(cur_utc);
-  
-  // Find tomorrow's local date string
-  time_t tomorrow = now + 24 * 3600;
-  struct tm *local_tomorrow = localtime(&tomorrow);
-  char tom_local[16];
-  strftime(tom_local, sizeof(tom_local), "%Y%m%d0000", local_tomorrow);
-  std::string target_tom_str(tom_local);
   
   std::string actual_temp_date, actual_picto_date, actual_tmin_date, actual_tmax_date, actual_dpicto_date;
   

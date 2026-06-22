@@ -431,10 +431,12 @@ public:
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
     setvbuf(stdout, NULL, _IONBF, 0); // Turn off stdout buffering
     offscreen_ = matrix_->CreateFrameCanvas();
-    font_file_ = (matrix_->height() >= 20) ? "../fonts/5x7.bdf"
-                                          : "../fonts/4x6.bdf";
+    font_file_ = "../fonts/4x6.bdf";
     if (!font_.LoadFont(font_file_.c_str())) {
       fprintf(stderr, "Couldn't load font '%s'\n", font_file_.c_str());
+    }
+    if (!clock_font.LoadFont("../fonts/10x20.bdf")) {
+      fprintf(stderr, "Couldn't load clock font\n");
     }
   }
 
@@ -735,33 +737,78 @@ private:
                    const std::string &error_message, bool toggle_tomorrow, int tick) {
     offscreen_->Fill(0, 0, 0); // Clear screen
 
-    if (!ok) {
-      DrawLineText(2, 2, Color(255, 0, 0), "Weather Error");
-      DrawLineText(2, font_.height() + 4, Color(255, 255, 0), station_abbr_);
-      DrawLineText(2, font_.height() * 2 + 6, Color(255, 255, 255), error_message);
-      return;
-    }
-
     const int w = matrix_->width();
     const int h = matrix_->height();
 
     // If screen is wide (e.g. 128px), show side-by-side
     if (w >= 128) {
-      // Draw NOW (Left side)
-      DrawLineText(4, 2, Color(0, 191, 255), "NOW (" + reading.current_time + ")");
-      DrawWeatherIcon(12, 16, GetWeatherType(reading.current_code), tick);
-      DrawLineText(32, 18, Color(255, 215, 0), reading.current_temp + " C");
+      // =========================
+      // 🕒 GROSSE UHR OBEN
+      // =========================
+      std::string current_time = GetCurrentTime();
+      int clock_char_width = 10; // grob für 10x20 Font
+      int clock_text_width = current_time.size() * clock_char_width;
+      int x_clock = (w - clock_text_width) / 2;
+      int y_clock = 15; // kleiner Abstand nach oben
 
-      // Draw vertical separator
-      for (int y = 0; y < h; ++y) {
-        offscreen_->SetPixel(64, y, 60, 60, 60);
+      DrawText(offscreen_, clock_font,
+               x_clock,
+               y_clock,
+               Color(255, 255, 255),
+               NULL,
+               current_time.c_str());
+
+      // =========================
+      // ❌ ERROR STATE
+      // =========================
+      if (!ok) {
+        DrawLineText(2, clock_font.height() + 2,
+                     Color(255, 0, 0), "Weather Error");
+        DrawLineText(2, clock_font.height() + font_.height() + 4,
+                     Color(255, 255, 0), station_abbr_);
+        DrawLineText(2, clock_font.height() + font_.height() * 2 + 6,
+                     Color(255, 255, 255), error_message);
+        return;
       }
 
-      // Draw TOMORROW (Right side)
-      DrawLineText(68, 2, Color(0, 255, 127), "TOMORROW");
-      DrawWeatherIcon(76, 16, GetWeatherType(reading.tomorrow_code), tick);
-      DrawLineText(96, 18, Color(255, 215, 0), reading.tomorrow_min + " - " + reading.tomorrow_max + " C");
+      // =========================
+      // 🧱 LAYOUT VARIABLEN (Left Panel)
+      // =========================
+      const int x_base = 0;
+      const int x_dest = x_base + 2;
+      const int x_time = x_base + 36;
+      const int x_plat = x_time + 23;
+
+      int y = clock_font.height() - 2;
+
+      // NOW Row
+      DrawLineText(x_dest, y, Color(0, 255, 255), "NOW");
+      DrawLineText(x_time, y, Color(255, 255, 255), reading.current_temp + " C");
+      DrawLineText(x_plat, y, Color(255, 200, 0),
+                   GetWeatherAbbr(GetWeatherType(reading.current_code)));
+
+      y += font_.height() + 1;
+
+      // TOMORROW Row
+      DrawLineText(x_dest, y, Color(0, 255, 255), "TOMORR");
+      DrawLineText(x_time, y, Color(255, 255, 255), reading.tomorrow_min + "-" + reading.tomorrow_max);
+      DrawLineText(x_plat, y, Color(255, 200, 0),
+                   GetWeatherAbbr(GetWeatherType(reading.tomorrow_code)));
+
+      // =========================
+      // 🌤 WEATHER ICONS (Right Panel)
+      // =========================
+      DrawWeatherIcon(88, 18, GetWeatherType(reading.current_code), tick);
+      DrawWeatherIcon(88, 40, GetWeatherType(reading.tomorrow_code), tick);
+
     } else {
+      if (!ok) {
+        DrawLineText(2, 2, Color(255, 0, 0), "Weather Error");
+        DrawLineText(2, font_.height() + 4, Color(255, 255, 0), station_abbr_);
+        DrawLineText(2, font_.height() * 2 + 6, Color(255, 255, 255), error_message);
+        return;
+      }
+
       // Screen is narrow (e.g. 64px), toggle view every 2.5 seconds
       if (!toggle_tomorrow) {
         // Draw NOW
@@ -777,11 +824,37 @@ private:
     }
   }
 
+  static std::string GetCurrentTime() {
+    time_t now = time(nullptr);
+    struct tm *lt = localtime(&now);
+
+    char buf[6];
+    snprintf(buf, sizeof(buf), "%02d:%02d",
+             lt->tm_hour,
+             lt->tm_min);
+
+    return std::string(buf);
+  }
+
+  static std::string GetWeatherAbbr(WeatherType type) {
+    switch (type) {
+      case WEATHER_SUN:       return "SU";
+      case WEATHER_CLOUD:     return "CL";
+      case WEATHER_RAIN:      return "RA";
+      case WEATHER_SUN_CLOUD: return "SC";
+      case WEATHER_SNOW:      return "SN";
+      case WEATHER_THUNDER:   return "TH";
+      case WEATHER_FOG:       return "FO";
+      default:                return "--";
+    }
+  }
+
   RGBMatrix *const matrix_;
   FrameCanvas *offscreen_;
   std::string station_abbr_;
   std::string font_file_;
   Font font_;
+  Font clock_font;
 };
 
 }  // namespace

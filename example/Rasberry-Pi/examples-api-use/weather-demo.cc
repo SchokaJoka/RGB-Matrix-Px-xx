@@ -8,7 +8,9 @@
 
 #include <algorithm> // for array/string manipulations (like map/filter/sort)
 #include <cctype>    // for character utilities (like tolower/toupper)
+#include <cmath>     // for std::abs
 #include <cstdio>    // standard I/O (like console.log/printf)
+#include <ctime>     // for time, gmtime, localtime, strftime, timegm
 #include <sstream>   // string stream (helps parse strings like streams/buffers)
 #include <string>    // C++ string class (like JS String)
 #include <unistd.h>  // Unix system calls (like sleep/usleep)
@@ -32,49 +34,56 @@ static std::string ToUpperCopy(std::string value) {
   return value;
 }
 
-// Helper: Maps SwissMetNet abbreviations to City names wttr.in understands
-static std::string MapAbbrToCity(const std::string &abbr) {
+// Helper: Maps SwissMetNet abbreviations to Point ID, Point Type, and Display Name
+static void MapAbbrToPoint(const std::string &abbr, std::string *point_id, std::string *point_type_id, std::string *display_name) {
   std::string upper = ToUpperCopy(abbr);
-  if (upper == "LUZ") return "Luzern";
-  if (upper == "BAS") return "Basel";
-  if (upper == "BER") return "Bern";
-  if (upper == "ZRH" || upper == "ZEH") return "Zurich";
-  if (upper == "GVE") return "Geneva";
-  if (upper == "LUG") return "Lugano";
-  return abbr; // fallback
-}
-
-// Helper: Extract JSON value from raw JSON string (since we don't have a JSON library)
-static std::string ExtractJsonValue(const std::string &json, const std::string &key, size_t start_pos = 0) {
-  // Look for "key": "
-  std::string target = "\"" + key + "\": \"";
-  size_t idx = json.find(target, start_pos);
-  if (idx == std::string::npos) {
-    // Maybe without space: "key":"
-    target = "\"" + key + "\":\"";
-    idx = json.find(target, start_pos);
-    if (idx == std::string::npos) {
-      // Maybe it's a number/boolean: "key": value
-      target = "\"" + key + "\": ";
-      idx = json.find(target, start_pos);
-      if (idx == std::string::npos) {
-        // Maybe "key":value
-        target = "\"" + key + "\":";
-        idx = json.find(target, start_pos);
-        if (idx == std::string::npos) return "";
+  
+  // Default values: Lucerne fallback
+  *point_id = "68";
+  *point_type_id = "1";
+  *display_name = "Luzern";
+  
+  if (upper == "LUZ") {
+    *point_id = "68";
+    *point_type_id = "1";
+    *display_name = "Luzern";
+  } else if (upper == "BAS") {
+    *point_id = "75";
+    *point_type_id = "1";
+    *display_name = "Basel";
+  } else if (upper == "BER") {
+    *point_id = "78";
+    *point_type_id = "1";
+    *display_name = "Bern";
+  } else if (upper == "ZRH" || upper == "ZEH" || upper == "SMA") {
+    *point_id = "71";
+    *point_type_id = "1";
+    *display_name = "Zurich";
+  } else if (upper == "GVE") {
+    *point_id = "58";
+    *point_type_id = "1";
+    *display_name = "Geneva";
+  } else if (upper == "LUG") {
+    *point_id = "47";
+    *point_type_id = "1";
+    *display_name = "Lugano";
+  } else {
+    // Check if it's all digits (like a postcode or raw point ID)
+    bool is_digits = true;
+    for (char c : upper) {
+      if (!isdigit(c)) { is_digits = false; break; }
+    }
+    if (is_digits && !upper.empty()) {
+      if (upper.length() == 4) {
+        *point_id = upper + "00";
+        *point_type_id = "2"; // Postcode
+      } else {
+        *point_id = upper;
+        *point_type_id = "1";
       }
+      *display_name = "POI " + upper;
     }
   }
-  
-  idx += target.length();
-  size_t end = json.find_first_of("\",]}\n", idx);
-  if (end == std::string::npos) return "";
-  std::string val = json.substr(idx, end - idx);
-  // Trim trailing quotes or whitespace
-  while (!val.empty() && (val.back() == '"' || val.back() == ' ' || val.back() == '\r')) {
-    val.pop_back();
-  }
-  return val;
 }
 
 // Helper: Run a terminal command and get output (JS equivalent: execSync(command))
@@ -106,18 +115,52 @@ enum WeatherType {
   WEATHER_RAIN
 };
 
-// Map wttr.in weatherCode to our simplified WeatherType enum
+// Map MeteoSwiss pictogram weather code to our simplified WeatherType enum
 static WeatherType GetWeatherType(const std::string &code_str) {
   int code = atoi(code_str.c_str());
-  if (code == 113) {
-    return WEATHER_SUN;
+  // Normalize night-time codes (100+) to daytime equivalent
+  if (code > 100) {
+    code = code - 100;
   }
-  // Rain codes (heavy, moderate, light, showers, thunderstorms)
-  if (code == 176 || (code >= 263 && code <= 308) || (code >= 353 && code <= 359) || code == 386 || code == 389) {
-    return WEATHER_RAIN;
+  
+  switch (code) {
+    case 1:  // Sunny
+    case 2:  // Mostly sunny
+    case 3:  // Partly sunny
+    case 26: // High clouds
+      return WEATHER_SUN;
+      
+    case 7:  // Rain showers
+    case 8:  // Heavy rain
+    case 9:  // Rain and snow showers
+    case 10: // Snow showers
+    case 11: // Thunderstorm
+    case 12: // Sunny intervals, chance of thunderstorms
+    case 13: // Sunny intervals, possible thunderstorms
+    case 14: // Rain
+    case 15: // Snow
+    case 16: // Rain and snow
+    case 17: // Hail
+    case 18: // Sunny intervals and rain
+    case 19: // Sunny intervals and snow
+    case 20: // Sunny intervals, rain and snow
+    case 21: // Thunderstorm
+    case 22: // Thunderstorm
+    case 29: // Rain / showers
+    case 30: // Rain / showers
+    case 31: // Rain / showers
+    case 32: // Rain / showers
+    case 33: // Rain / showers
+    case 34: // Rain / showers
+    case 35: // Rain / showers
+    case 39: // Snow/Rain/Storm
+    case 40: // Snow/Rain/Storm
+      return WEATHER_RAIN;
+      
+    default:
+      // Default/fallback is WEATHER_CLOUD for codes like 4 (Overcast), 5 (Bedeckt), 6 (Fog), 23, 24, 25, 27, 28, etc.
+      return WEATHER_CLOUD;
   }
-  // Default to cloud/overcast/fog/mist
-  return WEATHER_CLOUD;
 }
 
 // Struct: Weather data model
@@ -131,55 +174,222 @@ struct WeatherReading {
   std::string tomorrow_code;
 };
 
-// Fetch weather readings from wttr.in JSON API
+// Helper: Get YYYYMMDD date string with offset in days
+static std::string GetDateStringOffset(int days_offset) {
+  time_t t = time(NULL);
+  t += days_offset * 24 * 3600;
+  struct tm *tm_info = localtime(&t);
+  char buf[32];
+  strftime(buf, sizeof(buf), "%Y%m%d", tm_info);
+  return std::string(buf);
+}
+
+// Helper: Discover the latest forecast run date and timestamp from the daily STAC items
+static bool DiscoverLatestRun(std::string *item_id, std::string *latest_run, std::string *error_message) {
+  std::string json;
+  bool fetched = false;
+  
+  // Try today, yesterday, then 2 days ago
+  for (int offset = 0; offset >= -2; --offset) {
+    std::string date_str = GetDateStringOffset(offset);
+    std::string cur_item_id = date_str + "-ch";
+    std::string url = "https://data.geo.admin.ch/api/stac/v1/collections/ch.meteoschweiz.ogd-local-forecasting/items/" + cur_item_id;
+    
+    std::string cmd = "curl -fsSL -k \"" + url + "\"";
+    json.clear();
+    std::string cmd_err;
+    if (RunCommand(cmd, &json, &cmd_err) && !json.empty()) {
+      *item_id = cur_item_id;
+      fetched = true;
+      break;
+    }
+  }
+  
+  if (!fetched) {
+    *error_message = "Failed to fetch daily STAC items";
+    return false;
+  }
+  
+  // Search for the highest 12-digit timestamp matching "vnut12.lssw.YYYYMMDDHHMM"
+  size_t pos = 0;
+  std::string max_run = "";
+  while ((pos = json.find("vnut12.lssw.", pos)) != std::string::npos) {
+    pos += 12; // Length of "vnut12.lssw."
+    if (pos + 12 <= json.length()) {
+      std::string run = json.substr(pos, 12);
+      bool is_digits = true;
+      for (char c : run) {
+        if (!isdigit(c)) { is_digits = false; break; }
+      }
+      if (is_digits) {
+        if (run > max_run) {
+          max_run = run;
+        }
+      }
+    }
+  }
+  
+  if (max_run.empty()) {
+    *error_message = "No forecast runs found in STAC item";
+    return false;
+  }
+  
+  *latest_run = max_run;
+  return true;
+}
+
+// Helper: Fetch a single parameter's filtered row(s) from the STAC asset
+static bool FetchParameterRow(const std::string &item_id, const std::string &latest_run,
+                              const std::string &param, const std::string &point_id,
+                              const std::string &point_type_id, std::string *result_rows,
+                              std::string *error_message) {
+  std::string url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting/" + item_id + "/vnut12.lssw." + latest_run + "." + param + ".csv";
+  // Pipe through grep and force successful exit code so RunCommand doesn't fail on empty search matches
+  std::string cmd = "curl -fsSL -k \"" + url + "\" | grep \"^" + point_id + ";" + point_type_id + ";\" || true";
+  
+  result_rows->clear();
+  std::string cmd_err;
+  if (!RunCommand(cmd, result_rows, &cmd_err)) {
+    *error_message = "Failed to download/filter " + param;
+    return false;
+  }
+  return true;
+}
+
+// Helper: Parse CSV rows into date-value string pairs
+static std::vector<std::pair<std::string, std::string>> ParseCsvRows(const std::string &csv_content) {
+  std::vector<std::pair<std::string, std::string>> rows;
+  std::stringstream ss(csv_content);
+  std::string line;
+  while (std::getline(ss, line)) {
+    while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
+      line.pop_back();
+    }
+    if (line.empty()) continue;
+    
+    std::vector<std::string> tokens;
+    std::stringstream line_ss(line);
+    std::string token;
+    while (std::getline(line_ss, token, ';')) {
+      tokens.push_back(token);
+    }
+    
+    if (tokens.size() >= 4) {
+      rows.push_back(std::make_pair(tokens[2], tokens[3]));
+    }
+  }
+  return rows;
+}
+
+// Helper: Convert YYYYMMDDHHMM UTC date string into epoch time
+static time_t ParseDateToEpoch(const std::string &date_str) {
+  if (date_str.length() < 12) return 0;
+  struct tm tm_info = {0};
+  tm_info.tm_year = atoi(date_str.substr(0, 4).c_str()) - 1900;
+  tm_info.tm_mon = atoi(date_str.substr(4, 2).c_str()) - 1;
+  tm_info.tm_mday = atoi(date_str.substr(6, 2).c_str());
+  tm_info.tm_hour = atoi(date_str.substr(8, 2).c_str());
+  tm_info.tm_min = atoi(date_str.substr(10, 2).c_str());
+  return timegm(&tm_info);
+}
+
+// Helper: Find value from vector of rows closest to a target date string
+static std::string FindClosestValue(const std::vector<std::pair<std::string, std::string>> &rows,
+                                    const std::string &target_date, std::string *actual_date) {
+  if (rows.empty()) return "";
+  
+  size_t best_idx = 0;
+  double min_diff = -1;
+  time_t target_epoch = ParseDateToEpoch(target_date);
+  
+  for (size_t i = 0; i < rows.size(); ++i) {
+    time_t row_epoch = ParseDateToEpoch(rows[i].first);
+    double diff = std::abs(difftime(row_epoch, target_epoch));
+    
+    if (min_diff < 0 || diff < min_diff) {
+      min_diff = diff;
+      best_idx = i;
+    }
+  }
+  
+  *actual_date = rows[best_idx].first;
+  return rows[best_idx].second;
+}
+
+// Helper: Convert UTC date string to formatted local time string
+static std::string FormatUtcToLocalTime(const std::string &utc_date_str) {
+  time_t epoch = ParseDateToEpoch(utc_date_str);
+  struct tm *local_tm = localtime(&epoch);
+  char buf[16];
+  strftime(buf, sizeof(buf), "%H:%M", local_tm);
+  return std::string(buf);
+}
+
+// Fetch weather readings from MeteoSwiss OGD API
 static bool FetchWeatherReading(const std::string &station_abbr,
                                 WeatherReading *reading,
                                 std::string *error_message) {
-  const std::string city = MapAbbrToCity(station_abbr);
-  std::string json;
-  const std::string url = "https://wttr.in/" + city + "?format=j1";
+  std::string point_id, point_type_id, display_name;
+  MapAbbrToPoint(station_abbr, &point_id, &point_type_id, &display_name);
   
-  if (!RunCommand("curl -fsSL \"" + url + "\"", &json, error_message)) {
+  std::string item_id, latest_run;
+  if (!DiscoverLatestRun(&item_id, &latest_run, error_message)) {
     return false;
   }
-
-  // Print fetched data to the console (terminal)
-  printf("Fetched weather JSON data from URL:\n%s\n", json.c_str());
-
-  // Extract current condition fields
-  reading->station_name = city;
-  reading->current_temp = ExtractJsonValue(json, "temp_C");
-  reading->current_time = ExtractJsonValue(json, "observation_time");
-  reading->current_code = ExtractJsonValue(json, "weatherCode");
-
-  // Extract tomorrow's fields from the forecast array
-  size_t weather_arr_pos = json.find("\"weather\":");
-  if (weather_arr_pos == std::string::npos) {
-    *error_message = "Missing weather forecast array in response";
-    return false;
-  }
-
-  // Find today's date block
-  size_t today_date_pos = json.find("\"date\":", weather_arr_pos);
   
-  // Find tomorrow's date block
-  size_t tomorrow_date_pos = json.find("\"date\":", today_date_pos + 1);
-  if (tomorrow_date_pos == std::string::npos) {
-    *error_message = "Missing tomorrow's forecast date in response";
+  printf("MeteoSwiss API: Using item=%s, run=%s, point=%s (type=%s, name=%s)\n",
+         item_id.c_str(), latest_run.c_str(), point_id.c_str(), point_type_id.c_str(), display_name.c_str());
+  
+  std::string temp_csv, picto_csv, tmin_csv, tmax_csv, dpicto_csv;
+  
+  if (!FetchParameterRow(item_id, latest_run, "tre200h0", point_id, point_type_id, &temp_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "jww003i0", point_id, point_type_id, &picto_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200dn", point_id, point_type_id, &tmin_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "tre200dx", point_id, point_type_id, &tmax_csv, error_message)) return false;
+  if (!FetchParameterRow(item_id, latest_run, "jp2000d0", point_id, point_type_id, &dpicto_csv, error_message)) return false;
+  
+  auto temp_rows = ParseCsvRows(temp_csv);
+  auto picto_rows = ParseCsvRows(picto_csv);
+  auto tmin_rows = ParseCsvRows(tmin_csv);
+  auto tmax_rows = ParseCsvRows(tmax_csv);
+  auto dpicto_rows = ParseCsvRows(dpicto_csv);
+  
+  if (temp_rows.empty() || picto_rows.empty() || tmin_rows.empty() || tmax_rows.empty() || dpicto_rows.empty()) {
+    *error_message = "No forecast data found for this point";
     return false;
   }
-
-  // Tomorrow max/min temperatures
-  reading->tomorrow_max = ExtractJsonValue(json, "maxtempC", tomorrow_date_pos);
-  reading->tomorrow_min = ExtractJsonValue(json, "mintempC", tomorrow_date_pos);
-
-  // Tomorrow weather code at midday (12:00)
-  size_t tomorrow_midday_pos = json.find("\"time\": \"1200\"", tomorrow_date_pos);
-  reading->tomorrow_code = "113";
-  if (tomorrow_midday_pos != std::string::npos) {
-    reading->tomorrow_code = ExtractJsonValue(json, "weatherCode", tomorrow_midday_pos);
-  }
-
+  
+  // Find current UTC hour string
+  time_t now = time(NULL);
+  struct tm *utc_now = gmtime(&now);
+  char cur_utc[16];
+  snprintf(cur_utc, sizeof(cur_utc), "%04d%02d%02d%02d00",
+           utc_now->tm_year + 1900, utc_now->tm_mon + 1, utc_now->tm_mday, utc_now->tm_hour);
+  std::string target_utc_str(cur_utc);
+  
+  // Find tomorrow's local date string
+  time_t tomorrow = now + 24 * 3600;
+  struct tm *local_tomorrow = localtime(&tomorrow);
+  char tom_local[16];
+  strftime(tom_local, sizeof(tom_local), "%Y%m%d0000", local_tomorrow);
+  std::string target_tom_str(tom_local);
+  
+  std::string actual_temp_date, actual_picto_date, actual_tmin_date, actual_tmax_date, actual_dpicto_date;
+  
+  std::string temp_val = FindClosestValue(temp_rows, target_utc_str, &actual_temp_date);
+  std::string picto_val = FindClosestValue(picto_rows, target_utc_str, &actual_picto_date);
+  std::string tmin_val = FindClosestValue(tmin_rows, target_tom_str, &actual_tmin_date);
+  std::string tmax_val = FindClosestValue(tmax_rows, target_tom_str, &actual_tmax_date);
+  std::string dpicto_val = FindClosestValue(dpicto_rows, target_tom_str, &actual_dpicto_date);
+  
+  reading->station_name = display_name;
+  reading->current_temp = temp_val;
+  reading->current_time = FormatUtcToLocalTime(actual_temp_date);
+  reading->current_code = picto_val;
+  reading->tomorrow_min = tmin_val;
+  reading->tomorrow_max = tmax_val;
+  reading->tomorrow_code = dpicto_val;
+  
   return true;
 }
 

@@ -238,7 +238,7 @@ namespace
 
       for (int row = 0; row < h; ++row)
       {
-        int width = strlen(sprite[row]);
+        int width = 17;
 
         for (int col = 0; col < width; ++col)
         {

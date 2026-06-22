@@ -244,7 +244,7 @@ namespace
       const int x_time = x_base + 35;
       const int x_plat = x_time + 21;
       DrawSteamTrain(
-          matrix_->width() / 2 - 8,
+          matrix_->width() * 3 / 4 - 8,
           matrix_->height() - 12);
       if (!ok || trains.empty())
       {
@@ -280,7 +280,7 @@ namespace
         else
         {
           // MODE B: DELAY instead of TIME
-          std::string delay = t.has_delay && t.delay != "null" && t.delay != "0" ? ("+" + t.delay) : "0";
+          std::string delay = t.has_delay && t.delay != "null" && t.delay != "0" ? ("+" + t.delay) : " ";
 
           DrawLineText(x_dest, y, Color(0, 255, 255), dest);
           DrawLineText(x_time, y, Color(255, 80, 80), delay);

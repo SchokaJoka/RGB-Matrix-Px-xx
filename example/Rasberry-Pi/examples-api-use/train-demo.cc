@@ -265,7 +265,7 @@ namespace
       int clock_text_width = current_time.size() * clock_char_width;
 
       int x_clock = (matrix_->width() - clock_text_width) / 2;
-      int y_clock = 20; // kleiner Abstand nach oben
+      int y_clock = 15; // kleiner Abstand nach oben
 
       DrawText(offscreen_, clock_font,
                x_clock,
@@ -309,7 +309,7 @@ namespace
       // =========================
       // 🚆 ZUGLIST START (mehr Abstand nach Uhr)
       // =========================
-      int y = clock_font.height() + 6;
+      int y = clock_font.height() + 2;
 
       for (size_t i = 0; i < trains.size() && y < matrix_->height(); i++)
       {

@@ -318,7 +318,7 @@ namespace
       offscreen_->Fill(0, 0, 0);
       if (train_animating_)
       {
-       DrawSteamTrain(train_x_, train_y_, train_state_ == MOVING_LEFT);
+       DrawSteamTrain(train_x_, train_y_, train_state_ == MOVING_RIGHT);
       }
       // =========================
       // 🕒 GROSSE UHR OBEN

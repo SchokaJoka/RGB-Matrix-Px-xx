@@ -179,19 +179,19 @@ namespace
       return std::string(buf);
     }
 
- void Run() override
-{
-    std::vector<TrainDeparture> trains;
-    std::string error;
-
-    bool ok = FetchTrainData(station_abbr_, &trains, &error);
-
-    train_animating_ = true;
-    train_x_ = -20;
-    train_y_ = 20;
-
-    while (!interrupt_received)
+    void Run() override
     {
+      std::vector<TrainDeparture> trains;
+      std::string error;
+
+      bool ok = FetchTrainData(station_abbr_, &trains, &error);
+
+      train_animating_ = true;
+      train_x_ = -20;
+      train_y_ = matrix_->height() - 12;
+
+      while (!interrupt_received)
+      {
         RenderFrame(ok, trains, error, show_delay_mode);
 
         offscreen_ = matrix_->SwapOnVSync(offscreen_);
@@ -199,11 +199,11 @@ namespace
         train_x_++;
 
         if (train_x_ > matrix_->width())
-            train_x_ = -20;
+          train_x_ = -20;
 
         usleep(50000); // 20 FPS
+      }
     }
-}
     void DrawSteamTrain(int x, int y)
     {
       // Legende:
@@ -213,17 +213,17 @@ namespace
       // S = Rauch (grau)
 
       const char *sprite[] = {
-          "....SSSS.........",
-          "...SSSSSS.SS.....",
-          "..SSSSSSSSSSSS...",
-          "..SSSS..SSSSSSS..",
-          "....XXXX.........",
-          "..XXXXX.XXXXXX...",
+          ".........SSSS....",
+          ".....SS.SSSSSS...",
+          "...SSSSSSSSSSSS..",
+          "..SSSSSSS..SSSS..",
+          ".........XXXX....",
+          "...XXXXXX.XXXXX..",
           ".XXXXXXXXXXXXXXX.",
-          "XXWXXXXXXXXXXXXX.",
+          ".XXXXXXXXXXXXXWXX",
           "XXXXXXXXXXXXXXXXX",
-          "XXXXXXXXXXXXXXXX.",
-          "XXRRXXRRXXRRXX...",
+          ".XXXXXXXXXXXXXXXX",
+          "...XXRRXXRRXXRRXX",
           "................",
       };
 
@@ -265,10 +265,10 @@ namespace
                      bool show_delay_mode)
     {
       offscreen_->Fill(0, 0, 0);
-if (train_animating_)
-{
-    DrawSteamTrain(train_x_, train_y_);
-}
+      if (train_animating_)
+      {
+        DrawSteamTrain(train_x_, train_y_);
+      }
       // =========================
       // 🕒 GROSSE UHR OBEN
       // =========================

@@ -500,6 +500,12 @@ private:
              text.c_str(), 0);
   }
 
+  void DrawCenteredText(int center_x, int y, const Color &color, const std::string &text) {
+    int text_width = MeasureText(font_, text.c_str());
+    int x = center_x - text_width / 2;
+    DrawText(offscreen_, font_, x, y + font_.baseline(), color, NULL, text.c_str(), 0);
+  }
+
   // Draws an animated pixel-art weather icon on the canvas at (x,y)
   void DrawWeatherIcon(int x, int y, WeatherType type, int tick) {
     if (type == WEATHER_SUN) {
@@ -773,10 +779,9 @@ private:
     // 🕒 GROSSE UHR OBEN
     // =========================
     std::string current_time = GetCurrentTime();
-    int clock_char_width = 10; // grob für 10x20 Font
-    int clock_text_width = current_time.size() * clock_char_width;
-    int x_clock = (64 - clock_text_width) / 2; // Centered on the first panel (0-63)
-    int y_clock = 15; // kleiner Abstand nach oben
+    int clock_text_width = MeasureText(clock_font, current_time.c_str());
+    int x_clock = (128 - clock_text_width) / 2; // Centered on the middle of the two boards (0-127)
+    int y_clock = 15; // baseline y-coordinate
 
     DrawText(offscreen_, clock_font,
              x_clock,
@@ -799,29 +804,23 @@ private:
     }
 
     // =========================
-    // 🧱 LAYOUT VARIABLEN (First Panel)
+    // 🧱 WEATHER COLUMNS (NOW and TOMORROW side-by-side)
     // =========================
-    const int x_base = 0;
-    const int x_dest = x_base + 2;
-    const int x_time = x_base + 36;
+    const int y_icon = 27;
+    const int y_name = 41;
+    const int y_temp = 51;
 
-    int y = clock_font.height() - 2;
+    // NOW Column (centered at x = 32)
+    DrawWeatherIcon(32 - 8, y_icon, GetWeatherType(reading.current_code), tick);
+    DrawCenteredText(32, y_name, Color(0, 255, 255), "NOW");
+    DrawCenteredText(32, y_temp, Color(255, 255, 255), reading.current_temp + " 'C");
 
-    // NOW Row
-    DrawLineText(x_dest, y, Color(0, 255, 255), "NOW");
-    DrawLineText(x_time, y, Color(255, 255, 255), reading.current_temp + " C");
-
-    y += font_.height() + 1;
-
-    // TOMORROW Row
-    DrawLineText(x_dest, y, Color(0, 255, 255), "TOMORR");
-    DrawLineText(x_time, y, Color(255, 255, 255), reading.tomorrow_min + "-" + reading.tomorrow_max);
-
-    // =========================
-    // 🌤 WEATHER ICONS (First Panel bottom)
-    // =========================
-    DrawWeatherIcon(10, 36, GetWeatherType(reading.current_code), tick);
-    DrawWeatherIcon(38, 36, GetWeatherType(reading.tomorrow_code), tick);
+    // TOMORROW Column (centered at x = 96)
+    DrawWeatherIcon(96 - 8, y_icon, GetWeatherType(reading.tomorrow_code), tick);
+    DrawCenteredText(96, y_name, Color(0, 255, 255), "TOMORROW");
+    
+    std::string tom_temp = reading.tomorrow_min + "-" + reading.tomorrow_max + " 'C";
+    DrawCenteredText(96, y_temp, Color(255, 255, 255), tom_temp);
   }
 
   static std::string GetCurrentTime() {

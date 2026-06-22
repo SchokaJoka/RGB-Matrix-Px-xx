@@ -928,12 +928,12 @@ private:
 
     // NOW Column (centered at x = 14)
     DrawWeatherIcon(14 - 8, y_icon, GetWeatherType(reading.current_code), tick);
-    DrawCenteredText(14, y_name, Color(0, 255, 255), "NOW");
+    DrawCenteredText(14, y_name, Color(0, 255, 255), "HEUTE");
     DrawCenteredText(14, y_temp, Color(255, 255, 255), reading.current_temp + "\xc2\xb0" "C");
 
     // TOMORROW Column (centered at x = 44)
     DrawWeatherIcon(44 - 8, y_icon, GetWeatherType(reading.tomorrow_code), tick);
-    DrawCenteredText(44, y_name, Color(0, 255, 255), "TOMORROW");
+    DrawCenteredText(44, y_name, Color(0, 255, 255), "MORGEN");
     
     std::string tom_temp = reading.tomorrow_max + "\xc2\xb0" "C";
     DrawCenteredText(44, y_temp, Color(255, 255, 255), tom_temp);

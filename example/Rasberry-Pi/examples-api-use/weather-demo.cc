@@ -889,7 +889,7 @@ private:
         "STORM",
         "FOG"
       };
-      const int y_icon = 17;
+      const int y_icon = 18;
       const int y_name = 31;
       const int y_temp = 38;
 

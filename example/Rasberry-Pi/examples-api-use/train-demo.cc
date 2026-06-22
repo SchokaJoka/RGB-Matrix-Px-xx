@@ -150,9 +150,16 @@ namespace
     {
       offscreen_ = matrix_->CreateFrameCanvas();
       font_file_ = "../fonts/4x6.bdf";
+
       if (!font_.LoadFont(font_file_.c_str()))
       {
         fprintf(stderr, "Couldn't load font '%s'\n", font_file_.c_str());
+      }
+
+      // 👇 richtig: KEIN Font davor!
+      if (!clock_font.LoadFont("../fonts/10x20.bdf"))
+      {
+        fprintf(stderr, "Couldn't load clock font\n");
       }
     }
 
@@ -248,59 +255,86 @@ namespace
                      bool show_delay_mode)
     {
       offscreen_->Fill(0, 0, 0);
-      std::string time = GetCurrentTime();
 
-      int x = (matrix_->width() - (time.size() * 4)) / 2;
+      // =========================
+      // 🕒 GROSSE UHR OBEN
+      // =========================
+      std::string current_time = GetCurrentTime();
 
-      // oben
-      DrawLineText(x, 0, Color(255, 255, 255), time);
+      int clock_char_width = 10; // grob für 10x20 Font
+      int clock_text_width = current_time.size() * clock_char_width;
+
+      int x_clock = (matrix_->width() - clock_text_width) / 2;
+      int y_clock = 2; // kleiner Abstand nach oben
+
+      DrawText(offscreen_, clock_font,
+               x_clock,
+               y_clock,
+               Color(255, 255, 255),
+               NULL,
+               current_time.c_str());
+
+      // =========================
+      // 🧱 LAYOUT VARIABLEN
+      // =========================
       const int x_offset = 2;
 
-      // 👉 Spaltenlayout
-      const int panel_width = 64; // Breite des rechten Bereichs
+      const int panel_width = 64;
       const int x_base = matrix_->width() - panel_width;
 
       const int x_dest = x_base + 2;
       const int x_time = x_base + 36;
       const int x_plat = x_time + 23;
+
       DrawSteamTrain(
           matrix_->width() * 3 / 4 - 8,
           matrix_->height() - 12);
+
+      // =========================
+      // ❌ ERROR STATE
+      // =========================
       if (!ok || trains.empty())
       {
-        DrawLineText(x_offset, 0, Color(255, 0, 0), "Train board error");
-        DrawLineText(x_offset, font_.height(), Color(255, 255, 0), station_abbr_);
-        DrawLineText(x_offset, font_.height() * 2, Color(255, 255, 255), error_message);
+        DrawLineText(x_offset, clock_font.height() + 2,
+                     Color(255, 0, 0), "Train board error");
+
+        DrawLineText(x_offset, clock_font.height() + font_.height() + 4,
+                     Color(255, 255, 0), station_abbr_);
+
+        DrawLineText(x_offset, clock_font.height() + font_.height() * 2 + 6,
+                     Color(255, 255, 255), error_message);
         return;
       }
 
-      int y = font_.height();
+      // =========================
+      // 🚆 ZUGLIST START (mehr Abstand nach Uhr)
+      // =========================
+      int y = clock_font.height() + 6;
 
       for (size_t i = 0; i < trains.size() && y < matrix_->height(); i++)
       {
-
         const auto &t = trains[i];
 
-        std::string time = "--:--";
+        std::string dep_time = "--:--";
         if (t.departure_time.size() >= 16)
-          time = t.departure_time.substr(11, 5);
+          dep_time = t.departure_time.substr(11, 5);
 
         char dest[64];
-
         snprintf(dest, sizeof(dest), "%.12s", t.direction.c_str());
 
         if (!show_delay_mode)
         {
-          // MODE A: TIME
           DrawLineText(x_dest, y, Color(0, 255, 255), dest);
-          DrawLineText(x_time, y, Color(255, 255, 255), time);
+          DrawLineText(x_time, y, Color(255, 255, 255), dep_time);
           DrawLineText(x_plat, y, Color(255, 200, 0),
                        t.has_platform ? t.platform : "-");
         }
         else
         {
-          // MODE B: DELAY instead of TIME
-          std::string delay = t.has_delay && t.delay != "null" && t.delay != "0" ? ("+" + t.delay) : " ";
+          std::string delay =
+              t.has_delay && t.delay != "null" && t.delay != "0"
+                  ? ("+" + t.delay)
+                  : " ";
 
           DrawLineText(x_dest, y, Color(0, 255, 255), dest);
           DrawLineText(x_time, y, Color(255, 80, 80), delay);
@@ -317,6 +351,7 @@ namespace
     std::string station_abbr_;
     std::string font_file_;
     Font font_;
+    Font clock_font;
   };
 
 } // namespace

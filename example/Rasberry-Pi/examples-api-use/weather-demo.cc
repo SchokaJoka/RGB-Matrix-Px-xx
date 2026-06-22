@@ -190,7 +190,7 @@ static bool DiscoverLatestRun(std::string *item_id, std::string *latest_run, std
     std::string cur_item_id = date_str + "-ch";
     std::string url = "https://data.geo.admin.ch/api/stac/v1/collections/ch.meteoschweiz.ogd-local-forecasting/items/" + cur_item_id;
     
-    std::string cmd = "curl -fsSL -k --connect-timeout 10 -m 20 \"" + url + "\"";
+    std::string cmd = "curl -fsSL -k --compressed --connect-timeout 10 -m 20 \"" + url + "\"";
     json.clear();
     std::string cmd_err;
     if (RunCommand(cmd, &json, &cmd_err) && !json.empty()) {
@@ -240,7 +240,7 @@ static bool FetchParameterRow(const std::string &item_id, const std::string &lat
                               std::string *error_message) {
   std::string url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting/" + item_id + "/vnut12.lssw." + latest_run + "." + param + ".csv";
   // Pipe through grep and force successful exit code so RunCommand doesn't fail on empty search matches
-  std::string cmd = "curl -fsSL -k --connect-timeout 10 -m 30 \"" + url + "\" | grep \"^" + point_id + ";" + point_type_id + ";\" || true";
+  std::string cmd = "curl -fsSL -k --compressed --connect-timeout 10 -m 30 \"" + url + "\" | grep \"^" + point_id + ";" + point_type_id + ";\" || true";
   
   result_rows->clear();
   std::string cmd_err;

@@ -1165,10 +1165,49 @@ static int usage(const char *progname,
           "\t11 - Brightness pulse generator\n"
           "\t12 - Colorful rotating 3d cube\n"
           "\t13 - MeteoSwiss weather summary (optional station code)\n"
-        "\t14 - Train summary (optional station code)\n");
+          "\t14 - Train summary (optional station code)\n");
   fprintf(stderr, "Example:\n\t%s -D 1 runtext.ppm\n"
           "Scrolls the runtext until Ctrl-C is pressed\n", progname);
   return 1;
+}
+
+static void PrintDefaultOptions(const RGBMatrix::Options &matrix_options,
+                                const RuntimeOptions &runtime_opt,
+                                int scroll_ms) {
+  printf("Default properties and their values when running this script:\n\n");
+  printf("Script options:\n");
+  printf("  demo                     : -1 (Must be set via -D)\n");
+  printf("  scroll_ms                : %d\n\n", scroll_ms);
+  
+  printf("Matrix options:\n");
+  printf("  hardware_mapping         : %s\n", matrix_options.hardware_mapping ? matrix_options.hardware_mapping : "");
+  printf("  rows                     : %d\n", matrix_options.rows);
+  printf("  cols                     : %d\n", matrix_options.cols);
+  printf("  chain_length             : %d\n", matrix_options.chain_length);
+  printf("  parallel                 : %d\n", matrix_options.parallel);
+  printf("  pwm_bits                 : %d\n", matrix_options.pwm_bits);
+  printf("  pwm_lsb_nanoseconds      : %d\n", matrix_options.pwm_lsb_nanoseconds);
+  printf("  pwm_dither_bits          : %d\n", matrix_options.pwm_dither_bits);
+  printf("  brightness               : %d%%\n", matrix_options.brightness);
+  printf("  scan_mode                : %d (%s)\n", matrix_options.scan_mode, matrix_options.scan_mode == 0 ? "progressive" : "interlaced");
+  printf("  row_address_type         : %d\n", matrix_options.row_address_type);
+  printf("  multiplexing             : %d\n", matrix_options.multiplexing);
+  printf("  disable_hardware_pulsing : %s\n", matrix_options.disable_hardware_pulsing ? "true" : "false");
+  printf("  show_refresh_rate        : %s\n", matrix_options.show_refresh_rate ? "true" : "false");
+  printf("  inverse_colors           : %s\n", matrix_options.inverse_colors ? "true" : "false");
+  printf("  led_rgb_sequence         : %s\n", matrix_options.led_rgb_sequence ? matrix_options.led_rgb_sequence : "");
+  printf("  pixel_mapper_config      : %s\n", matrix_options.pixel_mapper_config ? matrix_options.pixel_mapper_config : "(empty)");
+  printf("  panel_type               : %s\n", matrix_options.panel_type ? matrix_options.panel_type : "(empty)");
+  printf("  limit_refresh_rate_hz    : %d\n", matrix_options.limit_refresh_rate_hz);
+  printf("  disable_busy_waiting     : %s\n\n", matrix_options.disable_busy_waiting ? "true" : "false");
+
+  printf("Runtime options:\n");
+  printf("  gpio_slowdown            : %d\n", runtime_opt.gpio_slowdown);
+  printf("  rp1_rio                  : %d\n", runtime_opt.rp1_rio);
+  printf("  daemon                   : %d (%s)\n", runtime_opt.daemon, runtime_opt.daemon == 0 ? "off" : (runtime_opt.daemon == 1 ? "on" : "disabled"));
+  printf("  drop_privileges          : %d (%s)\n", runtime_opt.drop_privileges, runtime_opt.drop_privileges == 0 ? "off" : (runtime_opt.drop_privileges == 1 ? "on" : "disabled"));
+  printf("  drop_priv_user           : %s\n", runtime_opt.drop_priv_user ? runtime_opt.drop_priv_user : "");
+  printf("  drop_priv_group          : %s\n", runtime_opt.drop_priv_group ? runtime_opt.drop_priv_group : "");
 }
 
 int main(int argc, char *argv[]) {
@@ -1185,7 +1224,15 @@ int main(int argc, char *argv[]) {
   matrix_options.chain_length = 2;
   matrix_options.parallel = 1;
   matrix_options.disable_hardware_pulsing = true;
-  runtime_opt.gpio_slowdown = 2;
+  runtime_opt.gpio_slowdown = 4;
+
+  // Check if user requested showing defaults
+  for (int i = 1; i < argc; ++i) {
+    if (strcmp(argv[i], "--show-defaults") == 0 || strcmp(argv[i], "--defaults") == 0) {
+      PrintDefaultOptions(matrix_options, runtime_opt, scroll_ms);
+      return 0;
+    }
+  }
 
   // First things first: extract the command line flags that contain
   // relevant matrix options.

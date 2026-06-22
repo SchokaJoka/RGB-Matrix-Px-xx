@@ -1223,7 +1223,7 @@ int main(int argc, char *argv[]) {
   matrix_options.cols = 64;
   matrix_options.chain_length = 2;
   matrix_options.parallel = 1;
-  matrix_options.disable_hardware_pulsing = true;
+  matrix_options.disable_hardware_pulsing = false;
   runtime_opt.gpio_slowdown = 4;
 
   // Check if user requested showing defaults

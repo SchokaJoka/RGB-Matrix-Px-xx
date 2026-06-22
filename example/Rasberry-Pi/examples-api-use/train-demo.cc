@@ -13,6 +13,7 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+#include <ctime>
 
 using namespace rgb_matrix;
 
@@ -155,6 +156,19 @@ namespace
       }
     }
 
+    static std::string GetCurrentTime()
+    {
+      time_t now = time(nullptr);
+      struct tm *lt = localtime(&now);
+
+      char buf[6];
+      snprintf(buf, sizeof(buf), "%02d:%02d",
+               lt->tm_hour,
+               lt->tm_min);
+
+      return std::string(buf);
+    }
+
     void Run() override
     {
       while (!interrupt_received)
@@ -173,53 +187,54 @@ namespace
         sleep(10);                          // 15 seconds instead of 30
       }
     }
- void DrawSteamTrain(int x, int y)
-  {
-    // Legende:
-    // X = schwarz/dunkelgrau
-    // W = Fenster (hellblau)
-    // R = rote Räder
-    // S = Rauch (grau)
-
-    const char *sprite[] = {
-        "....SSSS.........",
-        "...SSSSSS.SS.....",
-        "..SSSSSSSSSSSS...",
-        "..SSSS..SSSSSSS..",
-        "....XXXX.........",
-        "..XXXXX.XXXXXX...",
-        ".XXXXXXXXXXXXXXX.",
-        "XXWXXXXXXXXXXXXX.",
-        "XXXXXXXXXXXXXXXXX",
-        "XXXXXXXXXXXXXXXX.",
-        "XXRRXXRRXXRRXX...",
-        "................",
-    };
-
-    const int h = sizeof(sprite) / sizeof(sprite[0]);
-
-    for (int row = 0; row < h; ++row)
+    void DrawSteamTrain(int x, int y)
     {
-      for (int col = 0; sprite[row][col] != '\0'; ++col)
+      // Legende:
+      // X = schwarz/dunkelgrau
+      // W = Fenster (hellblau)
+      // R = rote Räder
+      // S = Rauch (grau)
+
+      const char *sprite[] = {
+          "....SSSS.........",
+          "...SSSSSS.SS.....",
+          "..SSSSSSSSSSSS...",
+          "..SSSS..SSSSSSS..",
+          "....XXXX.........",
+          "..XXXXX.XXXXXX...",
+          ".XXXXXXXXXXXXXXX.",
+          "XXWXXXXXXXXXXXXX.",
+          "XXXXXXXXXXXXXXXXX",
+          "XXXXXXXXXXXXXXXX.",
+          "XXRRXXRRXXRRXX...",
+          "................",
+      };
+
+      const int h = sizeof(sprite) / sizeof(sprite[0]);
+
+      for (int row = 0; row < h; ++row)
       {
-        switch (sprite[row][col])
+        for (int col = 0; sprite[row][col] != '\0'; ++col)
         {
-        case 'X':
-          offscreen_->SetPixel(x + col, y + row, 30, 35, 45);
-          break;
-        case 'W':
-          offscreen_->SetPixel(x + col, y + row, 180, 240, 255);
-          break;
-        case 'R':
-          offscreen_->SetPixel(x + col, y + row, 220, 60, 60);
-          break;
-        case 'S':
-          offscreen_->SetPixel(x + col, y + row, 170, 170, 160);
-          break;
+          switch (sprite[row][col])
+          {
+          case 'X':
+            offscreen_->SetPixel(x + col, y + row, 30, 35, 45);
+            break;
+          case 'W':
+            offscreen_->SetPixel(x + col, y + row, 180, 240, 255);
+            break;
+          case 'R':
+            offscreen_->SetPixel(x + col, y + row, 220, 60, 60);
+            break;
+          case 'S':
+            offscreen_->SetPixel(x + col, y + row, 170, 170, 160);
+            break;
+          }
         }
       }
     }
-  }
+
   private:
     void DrawLineText(int x, int y, const Color &color, const std::string &text)
     {
@@ -233,7 +248,12 @@ namespace
                      bool show_delay_mode)
     {
       offscreen_->Fill(0, 0, 0);
+      std::string time = GetCurrentTime();
 
+      int x = (matrix_->width() - (time.size() * 4)) / 2;
+
+      // oben
+      DrawLineText(x, 0, Color(255, 255, 255), time);
       const int x_offset = 2;
 
       // 👉 Spaltenlayout

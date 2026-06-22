@@ -2,8 +2,8 @@ include ../config.mk
 
 CFLAGS=-Wall -O3 $(CPU_ARCH_FLAGS) $(LTO_FLAGS) -g -Wextra -Wno-unused-parameter
 CXXFLAGS=$(CFLAGS)
-OBJECTS=demo-main.o weather-demo.o train-demo.o minimal-example.o c-example.o text-example.o scrolling-text-example.o clock.o ledcat.o input-example.o pixel-mover.o digital-ideation.o
-BINARIES=demo minimal-example c-example text-example scrolling-text-example clock ledcat input-example pixel-mover digital-ideation
+OBJECTS=demo-main.o weather-demo.o train-demo.o minimal-example.o c-example.o text-example.o scrolling-text-example.o clock.o ledcat.o input-example.o pixel-mover.o digital-ideation.o plaza-info.o
+BINARIES=demo minimal-example c-example text-example scrolling-text-example clock ledcat input-example pixel-mover digital-ideation plaza-info
 
 # Where our library resides. You mostly only need to change the
 # RGB_LIB_DISTRIBUTION, this is where the library is checked out.
@@ -34,6 +34,7 @@ clock : clock.o
 ledcat : ledcat.o
 pixel-mover : pixel-mover.o
 digital-ideation : digital-ideation.o
+plaza-info : plaza-info.o
 
 # All the binaries that have the same name as the object file.q
 % : %.o $(RGB_LIBRARY)

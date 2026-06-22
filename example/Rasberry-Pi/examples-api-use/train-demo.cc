@@ -143,6 +143,9 @@ namespace
   class TrainStationBoardDemo : public DemoRunner
   {
     bool show_delay_mode = false;
+    bool train_animating_ = false;
+    int train_x_ = 0;
+    int train_y_ = 0;
 
   public:
     TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
@@ -178,6 +181,7 @@ namespace
 
     void Run() override
     {
+
       while (!interrupt_received)
       {
 
@@ -186,6 +190,12 @@ namespace
 
         bool ok = FetchTrainData(station_abbr_, &trains, &error);
 
+        if (ok)
+        {
+          train_animating_ = true;
+          train_x_ = -20; // Start links außerhalb
+          train_y_ = matrix_->height() - 12;
+        }
         RenderFrame(ok, trains, error, show_delay_mode);
 
         offscreen_ = matrix_->SwapOnVSync(offscreen_);
@@ -286,10 +296,17 @@ namespace
       const int x_time = x_base + 36;
       const int x_plat = x_time + 23;
 
-      DrawSteamTrain(
-          matrix_->width() * 3 / 4 - 8,
-          matrix_->height() - 12);
+      if (ok && !train_animating_)
+      {
+        train_animating_ = true;
+        train_x_ = -20;
+        train_y_ = matrix_->height() - 12;
+      }
 
+      if (train_animating_)
+      {
+        DrawSteamTrain(train_x_, train_y_);
+      }
       // =========================
       // ❌ ERROR STATE
       // =========================

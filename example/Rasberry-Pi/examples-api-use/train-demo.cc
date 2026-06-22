@@ -25,6 +25,7 @@ namespace
   static const rgb_matrix::Color SBB_BLACK(10, 10, 10);
   static const rgb_matrix::Color SBB_GREY(80, 80, 80);
   static const rgb_matrix::Color PANTOGRAPH_GREY(150, 150, 150);
+
   static bool RunCommand(const std::string &command, std::string *output,
                          std::string *error_message)
   {
@@ -87,7 +88,7 @@ namespace
       if (key == std::string::npos)
         break;
 
-      key += 6; // korrekt: Länge von "to":"
+      key += 6;
 
       size_t end = json.find("\"", key);
       if (end == std::string::npos)
@@ -137,8 +138,6 @@ namespace
       }
 
       out->push_back(d);
-
-      // wichtig: weiter im JSON suchen
       pos = end;
     }
 
@@ -151,8 +150,10 @@ namespace
     bool train_animating_ = false;
     int train_x_ = 0;
     int train_y_ = 0;
-    bool train_moving_right_ = true;
-    const int train_total_width = 70;
+    
+    // Gesamtlänge des SBB Giruno Zuges: 36 (Schnauze) + 28 (Mitte) + 36 (Schnauze) = 100 Pixel
+    const int train_total_width = 100;
+
     enum TrainState
     {
       MOVING_RIGHT,
@@ -165,7 +166,6 @@ namespace
 
     int wait_counter_ = 0;
     const int wait_frames = 40; // ~2s
-    const int train_width = 46;
 
   public:
     TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
@@ -179,7 +179,6 @@ namespace
         fprintf(stderr, "Couldn't load font '%s'\n", font_file_.c_str());
       }
 
-      // 👇 richtig: KEIN Font davor!
       if (!clock_font.LoadFont("../fonts/10x20.bdf"))
       {
         fprintf(stderr, "Couldn't load clock font\n");
@@ -207,7 +206,7 @@ namespace
       bool ok = FetchTrainData(station_abbr_, &trains, &error);
 
       train_animating_ = true;
-      train_x_ = -train_total_width; // Start komplett links außerhalb
+      train_x_ = -train_total_width; 
       train_y_ = matrix_->height() - 15;
 
       while (!interrupt_received)
@@ -219,7 +218,7 @@ namespace
         {
         case MOVING_RIGHT:
           train_x_++;
-          if (train_x_ > matrix_->width() + 10) // Puffer, damit auch der Wagen das Bild verlässt
+          if (train_x_ > matrix_->width() + 10) 
           {
             train_state_ = WAIT_RIGHT;
             wait_counter_ = 0;
@@ -231,7 +230,7 @@ namespace
           if (wait_counter_ > wait_frames)
           {
             train_state_ = MOVING_LEFT;
-            train_x_ = matrix_->width() + 40; // Start rechts außerhalb (inklusive Wagenabstand)
+            train_x_ = matrix_->width(); 
           }
           break;
 
@@ -249,7 +248,7 @@ namespace
           if (wait_counter_ > wait_frames)
           {
             train_state_ = MOVING_RIGHT;
-            train_x_ = -train_total_width; // Zurück zum Anfang links
+            train_x_ = -train_total_width; 
           }
           break;
         }
@@ -257,75 +256,31 @@ namespace
         usleep(50000);
       }
     }
-    void DrawSteamTrain(int x, int y, bool flipped)
+
+    // --- SBB Giruno Endwagen (Schnauze) ---
+    void DrawGirunoSchnauze(FrameCanvas *canvas, int x, int y, bool flipped)
     {
       const char *sprite[] = {
-          "....WWWWWWWWWW....WWWWWWWWWW....WWWWWWWWWW....",
-          "...WWWWWWWWWWWW..WWWWWWWWWWWW..WWWWWWWWWWWW...",
-          "..WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..",
-          "..WWWW..WWWW..WWWW||WWWW..WWWW..WWWW||WWWW....",
-          "..RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR..",
-          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-          "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-      };
+          "               RRRRRRRRRRRRRRRRRRRRR",
+          "         RRRRRRWWWWWWWWWWWWWWWWWWWWW",
+          "     RRRRWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+          "   RRWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+          "  RWWWWWWBBBBWWWWWWWWWWWWWWWWWWWWWWW",
+          "  WWWWWWBBBBWWWWWWWWWWWWWWWWWWWWWWWW",
+          "  WWWWWWWWWWWWWWWWWWWWWWWWBBBBBBBBBB",
+          "  WWWWWWWWWWWWWWWWRRWWWWWWBBBBBBBBBB",
+          "  GGGGGGGGGGGGGGGGRRGGGGGGGGGGGGGGGG",
+          "   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+          "    X X X X X X X X X X X X X X X   ",
+          "     O O                     O O    ",
+          "     O O                     O O    "};
       const int h = sizeof(sprite) / sizeof(sprite[0]);
-
-      for (int row = 0; row < h; ++row)
-      {
-        int width = 17;
-
-        for (int col = 0; col < width; ++col)
-        {
-          char pixel = flipped
-                           ? sprite[row][width - 1 - col]
-                           : sprite[row][col];
-
-          switch (pixel)
-          {
-          case 'X':
-            offscreen_->SetPixel(x + col, y + row, 30, 35, 45);
-            break;
-          case 'W':
-            offscreen_->SetPixel(x + col, y + row, 180, 240, 255);
-            break;
-          case 'R':
-            offscreen_->SetPixel(x + col, y + row, 220, 60, 60);
-            break;
-          case 'S':
-            offscreen_->SetPixel(x + col, y + row, 170, 170, 160);
-            break;
-          }
-        }
-      }
-    }
-    // --- SBB Re 460 Lokomotive (mit Richtungs-Flipping) ---
-    void DrawRe460Lok(FrameCanvas *canvas, int x, int y, bool flipped)
-    {
-      const char *sprite[] = {
-          "      PPPPPP      ",
-          "     P      P     ",
-          "    P        P    ",
-          "  RRRRRRRRRRRRRR  ",
-          " RRRRRRRRRRRRRRRR ",
-          "RWWWWWWWWWWWWWWWW R",
-          "RWBBBBBBWBBBBBBW RR",
-          "RWBBBBBBWBBBBBBW RR",
-          "RWWWWWWWWWWWWWWWW R",
-          " RRRRRRRRRRRRRRRR ",
-          "  X X X X X X X X  ",
-          "   O O       O O   ",
-          "   O O       O O   "};
-      const int h = sizeof(sprite) / sizeof(sprite[0]);
-      const int width = 19; // Tatsächliche Zeichenbreite im Array ermitteln
+      const int width = 36;
 
       for (int row = 0; row < h; ++row)
       {
         for (int col = 0; col < width; ++col)
         {
-          // Wenn flipped true ist, lesen wir die Spalte von rechts nach links
           char pixel = flipped ? sprite[row][width - 1 - col] : sprite[row][col];
           if (pixel == '\0' || pixel == ' ')
             continue;
@@ -333,83 +288,57 @@ namespace
           Color pColor;
           switch (pixel)
           {
-          case 'R':
-            pColor = SBB_RED;
-            break;
-          case 'W':
-            pColor = SBB_WHITE;
-            break;
-          case 'B':
-            pColor = SBB_BLACK;
-            break;
-          case 'P':
-            pColor = PANTOGRAPH_GREY;
-            break;
-          case 'X':
-            pColor = SBB_GREY;
-            break;
-          case 'O':
-            pColor = SBB_BLACK;
-            break;
-          default:
-            continue;
+          case 'R': pColor = SBB_RED; break;
+          case 'W': pColor = SBB_WHITE; break;
+          case 'B': pColor = SBB_BLACK; break;
+          case 'G': pColor = SBB_GREY; break;
+          case 'X': pColor = Color(40, 40, 40); break;
+          case 'O': pColor = SBB_BLACK; break;
+          default: continue;
           }
           canvas->SetPixel(x + col, y + row, pColor.r, pColor.g, pColor.b);
         }
       }
     }
 
-    // --- SBB IC2000 Wagen (mit Richtungs-Flipping) ---
-    void DrawIC2000Wagen(FrameCanvas *canvas, int x, int y, bool flipped)
+    // --- SBB Giruno Mittelwagen ---
+    void DrawGirunoMittelwagen(FrameCanvas *canvas, int x, int y)
     {
       const char *sprite[] = {
-          "  SSSSSSSSSSSSSSSSSSSSSSSSSSSS  ",
-          " SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS ",
-          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
-          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
-          "SWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW S",
-          "SWRRRRRWWWRRRRRWWWRRRRRWWWRRRRW S",
-          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
-          "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB S",
-          "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS S",
-          " SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS ",
-          "  X X X X X X X X X X X X X X  ",
-          "   O O                   O O   ",
-          "   O O                   O O   "};
+          "RRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+          "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+          "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+          "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+          "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+          "WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+          "BBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+          "BBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+          "GGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+          "GGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+          " X X X X X X X X X X X X X  ",
+          "   O O                 O O  ",
+          "   O O                 O O  "};
       const int h = sizeof(sprite) / sizeof(sprite[0]);
-      const int width = 33;
+      const int width = 28;
 
       for (int row = 0; row < h; ++row)
       {
         for (int col = 0; col < width; ++col)
         {
-          char pixel = flipped ? sprite[row][width - 1 - col] : sprite[row][col];
+          char pixel = sprite[row][col];
           if (pixel == '\0' || pixel == ' ')
             continue;
 
           Color pColor;
           switch (pixel)
           {
-          case 'S':
-            pColor = SBB_WHITE;
-            break;
-          case 'B':
-            pColor = SBB_BLACK;
-            break;
-          case 'W':
-            pColor = SBB_WHITE;
-            break;
-          case 'R':
-            pColor = SBB_RED;
-            break;
-          case 'X':
-            pColor = SBB_GREY;
-            break;
-          case 'O':
-            pColor = SBB_BLACK;
-            break;
-          default:
-            continue;
+          case 'R': pColor = SBB_RED; break;
+          case 'W': pColor = SBB_WHITE; break;
+          case 'B': pColor = SBB_BLACK; break;
+          case 'G': pColor = SBB_GREY; break;
+          case 'X': pColor = Color(40, 40, 40); break;
+          case 'O': pColor = SBB_BLACK; break;
+          default: continue;
           }
           canvas->SetPixel(x + col, y + row, pColor.r, pColor.g, pColor.b);
         }
@@ -436,27 +365,36 @@ namespace
 
         if (!is_moving_left)
         {
-          // Bewegung nach RECHTS: Lok fährt voran (rechts), Wagen hängt hinten an (links)
-          DrawRe460Lok(offscreen_, train_x_, train_base_y, false);
-          DrawIC2000Wagen(offscreen_, train_x_ - 35, train_base_y, false);
+          // --- ZUG FÄHRT NACH RECHTS --->
+          // Heck-Schnauze (nach links gedreht)
+          DrawGirunoSchnauze(offscreen_, train_x_, train_base_y, true);
+          // Mittelwagen
+          DrawGirunoMittelwagen(offscreen_, train_x_ + 36, train_base_y);
+          // Front-Schnauze (nach rechts gedreht)
+          DrawGirunoSchnauze(offscreen_, train_x_ + 36 + 28, train_base_y, false);
         }
         else
         {
-          // Bewegung nach LINKS: Lok fährt voran (links gedreht), Wagen hängt rechts dran
-          DrawRe460Lok(offscreen_, train_x_, train_base_y, true);
-          DrawIC2000Wagen(offscreen_, train_x_ + 21, train_base_y, true);
+          // <--- ZUG FÄHRT NACH LINKS ---
+          // Front-Schnauze (nach links gedreht)
+          DrawGirunoSchnauze(offscreen_, train_x_, train_base_y, true);
+          // Mittelwagen
+          DrawGirunoMittelwagen(offscreen_, train_x_ + 36, train_base_y);
+          // Heck-Schnauze (nach rechts gedreht)
+          DrawGirunoSchnauze(offscreen_, train_x_ + 36 + 28, train_base_y, false);
         }
       }
+      
       // =========================
       // 🕒 GROSSE UHR OBEN
       // =========================
       std::string current_time = GetCurrentTime();
 
-      int clock_char_width = 10; // grob für 10x20 Font
+      int clock_char_width = 10; 
       int clock_text_width = current_time.size() * clock_char_width;
 
       int x_clock = (matrix_->width() - clock_text_width) / 2;
-      int y_clock = 15; // kleiner Abstand nach oben
+      int y_clock = 15; 
 
       DrawText(offscreen_, clock_font,
                x_clock,
@@ -494,7 +432,7 @@ namespace
       }
 
       // =========================
-      // 🚆 ZUGLIST START (mehr Abstand nach Uhr)
+      // 🚆 ZUGLIST START
       // =========================
       int y = clock_font.height() - 2;
 

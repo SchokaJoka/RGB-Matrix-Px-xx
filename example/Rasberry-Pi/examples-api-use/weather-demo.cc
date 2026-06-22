@@ -806,21 +806,21 @@ private:
     // =========================
     // 🧱 WEATHER COLUMNS (NOW and TOMORROW side-by-side on the first panel)
     // =========================
-    const int y_icon = 27;
-    const int y_name = 41;
-    const int y_temp = 51;
+    const int y_icon = 17;
+    const int y_name = 31;
+    const int y_temp = 38;
 
-    // NOW Column (centered at x = 16)
-    DrawWeatherIcon(16 - 8, y_icon, GetWeatherType(reading.current_code), tick);
-    DrawCenteredText(16, y_name, Color(0, 255, 255), "NOW");
-    DrawCenteredText(16, y_temp, Color(255, 255, 255), reading.current_temp + "\xc2\xb0C");
+    // NOW Column (centered at x = 12)
+    DrawWeatherIcon(12 - 8, y_icon, GetWeatherType(reading.current_code), tick);
+    DrawCenteredText(12, y_name, Color(0, 255, 255), "NOW");
+    DrawCenteredText(12, y_temp, Color(255, 255, 255), reading.current_temp + "\xc2\xb0" "C");
 
-    // TOMORROW Column (centered at x = 48)
-    DrawWeatherIcon(48 - 8, y_icon, GetWeatherType(reading.tomorrow_code), tick);
-    DrawCenteredText(48, y_name, Color(0, 255, 255), "TOMORROW");
+    // TOMORROW Column (centered at x = 43)
+    DrawWeatherIcon(43 - 8, y_icon, GetWeatherType(reading.tomorrow_code), tick);
+    DrawCenteredText(43, y_name, Color(0, 255, 255), "TOMORROW");
     
-    std::string tom_temp = reading.tomorrow_min + "-" + reading.tomorrow_max + "\xc2\xb0C";
-    DrawCenteredText(48, y_temp, Color(255, 255, 255), tom_temp);
+    std::string tom_temp = reading.tomorrow_min + "-" + reading.tomorrow_max + "\xc2\xb0" "C";
+    DrawCenteredText(43, y_temp, Color(255, 255, 255), tom_temp);
   }
 
   static std::string GetCurrentTime() {

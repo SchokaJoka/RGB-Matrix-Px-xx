@@ -6,7 +6,6 @@
 #include "graphics.h"
 #include "demo-runner.h"
 
-// Standard C++ libraries (analogous to JS built-in modules/APIs)
 #include <algorithm> // for array/string manipulations (like map/filter/sort)
 #include <cctype>    // for character utilities (like tolower/toupper)
 #include <cstdio>    // standard I/O (like console.log/printf)
@@ -15,15 +14,12 @@
 #include <unistd.h>  // Unix system calls (like sleep/usleep)
 #include <vector>    // dynamic arrays (like JS Array/List)
 
-// Import the rgb_matrix namespace so we don't have to write rgb_matrix:: everywhere
 using namespace rgb_matrix;
 
-// Anonymous namespace: variables/functions here are local to this file (similar to ES modules scoping)
 namespace {
 
 // Helper: Convert string to lowercase (JS equivalent: value.toLowerCase())
 static std::string ToLowerCopy(std::string value) {
-  // std::transform works like a JS map() on the characters of the string
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return std::tolower(c); });
   return value;
@@ -36,61 +32,54 @@ static std::string ToUpperCopy(std::string value) {
   return value;
 }
 
-// Helper: Trim trailing newline (\n) or carriage return (\r) characters
-static std::string TrimLine(std::string value) {
-  while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
-    value.pop_back(); // Pop last char off the string (like JS array.pop())
-  }
-  return value;
+// Helper: Maps SwissMetNet abbreviations to City names wttr.in understands
+static std::string MapAbbrToCity(const std::string &abbr) {
+  std::string upper = ToUpperCopy(abbr);
+  if (upper == "LUZ") return "Luzern";
+  if (upper == "BAS") return "Basel";
+  if (upper == "BER") return "Bern";
+  if (upper == "ZRH" || upper == "ZEH") return "Zurich";
+  if (upper == "GVE") return "Geneva";
+  if (upper == "LUG") return "Lugano";
+  return abbr; // fallback
 }
 
-// Helper: Split a string by semicolon (JS equivalent: line.split(';'))
-static std::vector<std::string> SplitSemicolonLine(const std::string &line) {
-  std::vector<std::string> parts; // JS: const parts = [];
-  size_t start = 0;
-  while (start <= line.size()) {
-    const size_t end = line.find(';', start);
-    if (end == std::string::npos) {
-      parts.push_back(line.substr(start)); // JS: parts.push(line.slice(start))
-      break;
+// Helper: Extract JSON value from raw JSON string (since we don't have a JSON library)
+static std::string ExtractJsonValue(const std::string &json, const std::string &key, size_t start_pos = 0) {
+  // Look for "key": "
+  std::string target = "\"" + key + "\": \"";
+  size_t idx = json.find(target, start_pos);
+  if (idx == std::string::npos) {
+    // Maybe without space: "key":"
+    target = "\"" + key + "\":\"";
+    idx = json.find(target, start_pos);
+    if (idx == std::string::npos) {
+      // Maybe it's a number/boolean: "key": value
+      target = "\"" + key + "\": ";
+      idx = json.find(target, start_pos);
+      if (idx == std::string::npos) {
+        // Maybe "key":value
+        target = "\"" + key + "\":";
+        idx = json.find(target, start_pos);
+        if (idx == std::string::npos) return "";
+      }
     }
-    parts.push_back(line.substr(start, end - start));
-    start = end + 1;
   }
-  return parts;
-}
-
-// Helper: Find index of a string in a vector (JS equivalent: columns.indexOf(name))
-static int FindColumn(const std::vector<std::string> &columns,
-                      const std::string &name) {
-  for (size_t i = 0; i < columns.size(); ++i) {
-    if (columns[i] == name) return static_cast<int>(i);
+  
+  idx += target.length();
+  size_t end = json.find_first_of("\",]}\n", idx);
+  if (end == std::string::npos) return "";
+  std::string val = json.substr(idx, end - idx);
+  // Trim trailing quotes or whitespace
+  while (!val.empty() && (val.back() == '"' || val.back() == ' ' || val.back() == '\r')) {
+    val.pop_back();
   }
-  return -1;
-}
-
-// Helper: Get value at index from a vector (JS: return values[index])
-// In C++, we pass a pointer (std::string *value) to write the result back (output parameter)
-static bool GetValueAt(const std::vector<std::string> &values, int index,
-                       std::string *value) {
-  if (index < 0 || index >= static_cast<int>(values.size())) return false;
-  if (values[index].empty()) return false;
-  *value = values[index]; // Dereference pointer to store value (JS: value = values[index])
-  return true;
-}
-
-// Helper: Parse string to double/float (JS equivalent: parseFloat(value))
-static bool ParseDouble(const std::string &value, double *result) {
-  if (value.empty()) return false;
-  char *end = NULL;
-  *result = strtod(value.c_str(), &end); // Converts string to double
-  return end != value.c_str();          // Returns true if parsing succeeded
+  return val;
 }
 
 // Helper: Run a terminal command and get output (JS equivalent: execSync(command))
 static bool RunCommand(const std::string &command, std::string *output,
                        std::string *error_message) {
-  // popen runs the command and opens a read pipe to capture stdout/stderr
   FILE *pipe = popen(command.c_str(), "r");
   if (pipe == NULL) {
     *error_message = "Unable to start curl";
@@ -98,12 +87,11 @@ static bool RunCommand(const std::string &command, std::string *output,
   }
 
   char buffer[4096];
-  // Read output line by line from the pipe
   while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
-    output->append(buffer); // JS: output += buffer
+    output->append(buffer);
   }
 
-  const int rc = pclose(pipe); // Close the pipe and get exit code
+  const int rc = pclose(pipe);
   if (rc != 0) {
     *error_message = "curl returned a failure status";
     return false;
@@ -111,227 +99,245 @@ static bool RunCommand(const std::string &command, std::string *output,
   return true;
 }
 
-// Struct: A lightweight data model (JS equivalent: plain object/interface with default values)
-struct WeatherReading {
-  std::string station_abbr;
-  std::string reference_timestamp;
-  bool has_temperature = false;
-  bool has_humidity = false;
-  bool has_pressure = false;
-  bool has_wind_speed = false;
-  bool has_gust_speed = false;
-  bool has_precipitation = false;
-  double temperature_c = 0.0;
-  double humidity_percent = 0.0;
-  double pressure_hpa = 0.0;
-  double wind_speed_ms = 0.0;
-  double gust_speed_ms = 0.0;
-  double precipitation_mm = 0.0;
+// Enum: Weather types for icons
+enum WeatherType {
+  WEATHER_SUN,
+  WEATHER_CLOUD,
+  WEATHER_RAIN
 };
 
-// Fetch real-time weather readings for the given Swiss station code (e.g. "BAS" for Basel)
+// Map wttr.in weatherCode to our simplified WeatherType enum
+static WeatherType GetWeatherType(const std::string &code_str) {
+  int code = atoi(code_str.c_str());
+  if (code == 113) {
+    return WEATHER_SUN;
+  }
+  // Rain codes (heavy, moderate, light, showers, thunderstorms)
+  if (code == 176 || (code >= 263 && code <= 308) || (code >= 353 && code <= 359) || code == 386 || code == 389) {
+    return WEATHER_RAIN;
+  }
+  // Default to cloud/overcast/fog/mist
+  return WEATHER_CLOUD;
+}
+
+// Struct: Weather data model
+struct WeatherReading {
+  std::string station_name;
+  std::string current_temp;
+  std::string current_time;
+  std::string current_code;
+  std::string tomorrow_min;
+  std::string tomorrow_max;
+  std::string tomorrow_code;
+};
+
+// Fetch weather readings from wttr.in JSON API
 static bool FetchWeatherReading(const std::string &station_abbr,
                                 WeatherReading *reading,
                                 std::string *error_message) {
-  const std::string station_lower = ToLowerCopy(station_abbr);
-  std::string csv;
-  // URL to the Geo.admin.ch real-time weather API (returns a CSV file)
-  const std::string url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/" +
-      station_lower + "/ogd-smn_" + station_lower + "_t_now.csv";
+  const std::string city = MapAbbrToCity(station_abbr);
+  std::string json;
+  const std::string url = "https://wttr.in/" + city + "?format=j1";
   
-  // Run `curl -fsSL <url>` to fetch the CSV content
-  if (!RunCommand("curl -fsSL " + url, &csv, error_message)) {
+  if (!RunCommand("curl -fsSL \"" + url + "\"", &json, error_message)) {
     return false;
   }
 
   // Print fetched data to the console (terminal)
-  printf("Fetched weather CSV data from URL:\n%s\n", csv.c_str());
+  printf("Fetched weather JSON data from URL:\n%s\n", json.c_str());
 
-  // Read the CSV data line by line
-  std::istringstream input(csv);
-  std::string line;
-  std::vector<std::string> lines;
-  while (std::getline(input, line)) {
-    line = TrimLine(line);
-    if (!line.empty()) {
-      lines.push_back(line);
-    }
-  }
+  // Extract current condition fields
+  reading->station_name = city;
+  reading->current_temp = ExtractJsonValue(json, "temp_C");
+  reading->current_time = ExtractJsonValue(json, "observation_time");
+  reading->current_code = ExtractJsonValue(json, "weatherCode");
 
-  // The CSV must have at least the header row and a data row
-  if (lines.size() < 2) {
-    *error_message = "weather CSV did not contain any data rows";
+  // Extract tomorrow's fields from the forecast array
+  size_t weather_arr_pos = json.find("\"weather\":");
+  if (weather_arr_pos == std::string::npos) {
+    *error_message = "Missing weather forecast array in response";
     return false;
   }
 
-  // Parse header columns and the last row (most recent data reading)
-  const std::vector<std::string> header = SplitSemicolonLine(lines.front());
-  const std::vector<std::string> row = SplitSemicolonLine(lines.back());
-
-  // Find the column index for each weather parameter in the header
-  const int station_index = FindColumn(header, "station_abbr");
-  const int timestamp_index = FindColumn(header, "reference_timestamp");
-  const int temperature_index = FindColumn(header, "tre200s0");
-  const int humidity_index = FindColumn(header, "ure200s0");
-  const int pressure_index = FindColumn(header, "prestas0");
-  const int wind_index = FindColumn(header, "fkl010z0");
-  const int gust_index = FindColumn(header, "fkl010z1");
-  const int precipitation_index = FindColumn(header, "rre150z0");
-
-  // Populate basic metadata
-  if (!GetValueAt(row, station_index, &reading->station_abbr) ||
-      !GetValueAt(row, timestamp_index, &reading->reference_timestamp)) {
-    *error_message = "weather CSV row is missing station or timestamp data";
+  // Find today's date block
+  size_t today_date_pos = json.find("\"date\":", weather_arr_pos);
+  
+  // Find tomorrow's date block
+  size_t tomorrow_date_pos = json.find("\"date\":", today_date_pos + 1);
+  if (tomorrow_date_pos == std::string::npos) {
+    *error_message = "Missing tomorrow's forecast date in response";
     return false;
   }
 
-  // Parse and set metrics if present in the data row
-  std::string value;
-  if (GetValueAt(row, temperature_index, &value) &&
-      ParseDouble(value, &reading->temperature_c)) {
-    reading->has_temperature = true;
-  }
-  if (GetValueAt(row, humidity_index, &value) &&
-      ParseDouble(value, &reading->humidity_percent)) {
-    reading->has_humidity = true;
-  }
-  if (GetValueAt(row, pressure_index, &value) &&
-      ParseDouble(value, &reading->pressure_hpa)) {
-    reading->has_pressure = true;
-  }
-  if (GetValueAt(row, wind_index, &value) &&
-      ParseDouble(value, &reading->wind_speed_ms)) {
-    reading->has_wind_speed = true;
-  }
-  if (GetValueAt(row, gust_index, &value) &&
-      ParseDouble(value, &reading->gust_speed_ms)) {
-    reading->has_gust_speed = true;
-  }
-  if (GetValueAt(row, precipitation_index, &value) &&
-      ParseDouble(value, &reading->precipitation_mm)) {
-    reading->has_precipitation = true;
+  // Tomorrow max/min temperatures
+  reading->tomorrow_max = ExtractJsonValue(json, "maxtempC", tomorrow_date_pos);
+  reading->tomorrow_min = ExtractJsonValue(json, "mintempC", tomorrow_date_pos);
+
+  // Tomorrow weather code at midday (12:00)
+  size_t tomorrow_midday_pos = json.find("\"time\": \"1200\"", tomorrow_date_pos);
+  reading->tomorrow_code = "113";
+  if (tomorrow_midday_pos != std::string::npos) {
+    reading->tomorrow_code = ExtractJsonValue(json, "weatherCode", tomorrow_midday_pos);
   }
 
   return true;
 }
 
-// Helper: Formats weather metric string. E.g. "T23.5C" or "H55%" or "T--C" if no value.
-static std::string FormatMetric(bool has_value, double value, int decimals,
-                                const char *prefix, const char *suffix) {
-  char buffer[64];
-  if (!has_value) {
-    snprintf(buffer, sizeof(buffer), "%s--%s", prefix, suffix);
-  } else {
-    if (decimals == 0) {
-      snprintf(buffer, sizeof(buffer), "%s%.0f%s", prefix, value, suffix);
-    } else {
-      snprintf(buffer, sizeof(buffer), "%s%.*f%s", prefix, decimals, value,
-               suffix);
-    }
-  }
-  return buffer;
-}
-
-// Class: The main weather animation runner (JS equivalent: `class MeteoSwissWeather extends DemoRunner`)
 class MeteoSwissWeather : public DemoRunner {
 public:
-  // Constructor: Ran when instantiating the class
   MeteoSwissWeather(RGBMatrix *matrix, const std::string &station_abbr)
     : DemoRunner(matrix), matrix_(matrix), station_abbr_(station_abbr) {
-    // Create an offscreen buffer canvas for double-buffering (prevents screen tearing/flickering)
     offscreen_ = matrix_->CreateFrameCanvas();
-    // Choose font size depending on matrix display height
     font_file_ = (matrix_->height() >= 20) ? "../fonts/5x7.bdf"
                                           : "../fonts/4x6.bdf";
-    // Load the font
     if (!font_.LoadFont(font_file_.c_str())) {
       fprintf(stderr, "Couldn't load font '%s'\n", font_file_.c_str());
     }
   }
 
-  // The main run loop called by the demo system
+  // The main run loop
   void Run() override {
-    while (!interrupt_received) { // Loop runs until user hits Ctrl-C
-      WeatherReading reading;
-      std::string error_message;
-      // Fetch latest weather data (makes curl network request)
-      const bool ok = FetchWeatherReading(station_abbr_, &reading,
-                                          &error_message);
-      // Draw weather text metrics to offscreen canvas
-      RenderFrame(ok, reading, error_message);
-      // Swap the offscreen canvas to the active display (and get the old screen back as new offscreen)
+    int tick = 6000; // Force immediate fetch on startup
+    WeatherReading reading;
+    std::string error_message;
+    bool ok = false;
+
+    while (!interrupt_received) {
+      if (tick >= 6000) { // Fetch every 10 minutes (6000 * 100ms)
+        ok = FetchWeatherReading(station_abbr_, &reading, &error_message);
+        tick = 0;
+      }
+      
+      // Render screen (Toggle between NOW and TOMORROW every 2.5s if narrow)
+      RenderFrame(ok, reading, error_message, (tick % 50) >= 25);
       offscreen_ = matrix_->SwapOnVSync(offscreen_);
-      // Sleep for 10 minutes before fetching and rendering again
-      SleepUntilNextRefresh();
+      
+      usleep(100 * 1000); // Sleep for 100ms
+      tick++;
     }
   }
 
 private:
-  // Sleep helper: sleeps for 10 minutes, but wakes up immediately if Ctrl-C (interrupt) is received
-  void SleepUntilNextRefresh() {
-    const int refresh_seconds = 10 * 60; // 10 minutes
-    for (int i = 0; i < refresh_seconds && !interrupt_received; ++i) {
-      sleep(1);
-    }
-  }
-
-  // Text helper: Draws text at coordinates (x, y) with color
   void DrawLineText(int x, int y, const Color &color, const std::string &text) {
     DrawText(offscreen_, font_, x, y + font_.baseline(), color, NULL,
              text.c_str(), 0);
   }
 
-  // Renders the layout onto the offscreen canvas buffer
-  void RenderFrame(bool ok, const WeatherReading &reading,
-                   const std::string &error_message) {
-    offscreen_->Fill(0, 0, 0); // Clear canvas (JS: context.clearRect)
-    const bool compact = matrix_->height() < font_.height() * 3; // Check if display is small
-
-    // Render error message if the fetch failed (e.g. no internet connection)
-    if (!ok) {
-      DrawLineText(0, 0, Color(255, 0, 0), "MeteoSwiss weather");
-      DrawLineText(0, font_.height(), Color(255, 255, 0), station_abbr_);
-      if (!compact) {
-        DrawLineText(0, font_.height() * 2, Color(255, 255, 255),
-                     error_message);
+  // Draws a pixel-art weather icon on the canvas at (x,y)
+  void DrawWeatherIcon(int x, int y, WeatherType type) {
+    if (type == WEATHER_SUN) {
+      const char *sprite[] = {
+        "....Y.YY.Y....",
+        ".....YYYY.....",
+        "..Y.YYYYYY.Y..",
+        "..YYYYYYYYYY..",
+        "Y.YYYYYYYYYY.Y",
+        "Y.YYYYYYYYYY.Y",
+        "..YYYYYYYYYY..",
+        "..Y.YYYYYY.Y..",
+        ".....YYYY.....",
+        "....Y.YY.Y....",
+      };
+      for (int r = 0; r < 10; ++r) {
+        for (int c = 0; sprite[r][c] != '\0'; ++c) {
+          if (sprite[r][c] == 'Y') {
+            offscreen_->SetPixel(x + c, y + r, 255, 215, 0); // Gold/Yellow
+          }
+        }
       }
-      return;
+    } else if (type == WEATHER_CLOUD) {
+      const char *sprite[] = {
+        "......CCCC......",
+        "....CCCCCCCCC...",
+        "...CCCCCCCCCCC..",
+        "..CCCCCCCCCCCCC.",
+        ".CCCCCCCCCCCCCCC",
+        "CCCCCCCCCCCCCCCC",
+        "DDDDDDDDDDDDDDDD",
+      };
+      for (int r = 0; r < 7; ++r) {
+        for (int c = 0; sprite[r][c] != '\0'; ++c) {
+          if (sprite[r][c] == 'C') {
+            offscreen_->SetPixel(x + c, y + r, 220, 220, 220); // Light Grey
+          } else if (sprite[r][c] == 'D') {
+            offscreen_->SetPixel(x + c, y + r, 130, 130, 130); // Shadow
+          }
+        }
+      }
+    } else if (type == WEATHER_RAIN) {
+      const char *sprite[] = {
+        "......CCCC......",
+        "....CCCCCCCCC...",
+        "...CCCCCCCCCCC..",
+        "..CCCCCCCCCCCCC.",
+        ".CCCCCCCCCCCCCCC",
+        "CCCCCCCCCCCCCCCC",
+        "DDDDDDDDDDDDDDDD",
+        "....B....B....B.",
+        "...B....B....B..",
+        "..B....B....B...",
+      };
+      for (int r = 0; r < 10; ++r) {
+        for (int c = 0; sprite[r][c] != '\0'; ++c) {
+          if (sprite[r][c] == 'C') {
+            offscreen_->SetPixel(x + c, y + r, 200, 200, 200); // Grey cloud
+          } else if (sprite[r][c] == 'D') {
+            offscreen_->SetPixel(x + c, y + r, 110, 110, 110); // Shadow
+          } else if (sprite[r][c] == 'B') {
+            offscreen_->SetPixel(x + c, y + r, 0, 191, 255); // Deep Sky Blue rain
+          }
+        }
+      }
     }
-
-    // Line 1: Station Code & Time (e.g., "BAS 202606221000")
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%s %s",
-             ToUpperCopy(station_abbr_).c_str(),
-             reading.reference_timestamp.c_str());
-    DrawLineText(0, 0, Color(255, 255, 0), buffer);
-
-    // Line 2: Temperature, Humidity, and Wind speed (e.g., "T23.5C H55% W3.2m/s")
-    snprintf(buffer, sizeof(buffer), "%s %s %s",
-             FormatMetric(reading.has_temperature, reading.temperature_c, 1,
-                          "T", "C").c_str(),
-             FormatMetric(reading.has_humidity, reading.humidity_percent, 0,
-                          "H", "%").c_str(),
-             FormatMetric(reading.has_wind_speed, reading.wind_speed_ms, 1,
-                          "W", "m/s").c_str());
-    DrawLineText(0, font_.height(), Color(0, 255, 255), buffer);
-
-    // If the display height is too small, stop here
-    if (compact) {
-      return;
-    }
-
-    // Line 3 (Only for taller screens): Gust speed, Air Pressure, and Precipitation (e.g., "G4.5m/s P1013hPa R0.0mm")
-    snprintf(buffer, sizeof(buffer), "%s %s %s",
-             FormatMetric(reading.has_gust_speed, reading.gust_speed_ms, 1,
-                          "G", "m/s").c_str(),
-             FormatMetric(reading.has_pressure, reading.pressure_hpa, 0,
-                          "P", "hPa").c_str(),
-             FormatMetric(reading.has_precipitation, reading.precipitation_mm, 1,
-                          "R", "mm").c_str());
-    DrawLineText(0, font_.height() * 2, Color(0, 255, 0), buffer);
   }
 
-  // Member variables (JS: `this.matrix`, `this.offscreen`, etc.)
+  // Renders the weather visual information
+  void RenderFrame(bool ok, const WeatherReading &reading,
+                   const std::string &error_message, bool toggle_tomorrow) {
+    offscreen_->Fill(0, 0, 0); // Clear screen
+
+    if (!ok) {
+      DrawLineText(2, 2, Color(255, 0, 0), "Weather Error");
+      DrawLineText(2, font_.height() + 4, Color(255, 255, 0), station_abbr_);
+      DrawLineText(2, font_.height() * 2 + 6, Color(255, 255, 255), error_message);
+      return;
+    }
+
+    const int w = matrix_->width();
+    const int h = matrix_->height();
+
+    // If screen is wide (e.g. 128px), show side-by-side
+    if (w >= 128) {
+      // Draw NOW (Left side)
+      DrawLineText(4, 2, Color(0, 191, 255), "NOW (" + reading.current_time + ")");
+      DrawWeatherIcon(12, 16, GetWeatherType(reading.current_code));
+      DrawLineText(32, 18, Color(255, 215, 0), reading.current_temp + " C");
+
+      // Draw vertical separator
+      for (int y = 0; y < h; ++y) {
+        offscreen_->SetPixel(64, y, 60, 60, 60);
+      }
+
+      // Draw TOMORROW (Right side)
+      DrawLineText(68, 2, Color(0, 255, 127), "TOMORROW");
+      DrawWeatherIcon(76, 16, GetWeatherType(reading.tomorrow_code));
+      DrawLineText(96, 18, Color(255, 215, 0), reading.tomorrow_min + " - " + reading.tomorrow_max + " C");
+    } else {
+      // Screen is narrow (e.g. 64px), toggle view every 2.5 seconds
+      if (!toggle_tomorrow) {
+        // Draw NOW
+        DrawLineText(2, 1, Color(0, 191, 255), "NOW (" + reading.current_time + ")");
+        DrawWeatherIcon(4, 11, GetWeatherType(reading.current_code));
+        DrawLineText(24, 13, Color(255, 215, 0), reading.current_temp + " C");
+      } else {
+        // Draw TOMORROW
+        DrawLineText(2, 1, Color(0, 255, 127), "TOMORROW");
+        DrawWeatherIcon(4, 11, GetWeatherType(reading.tomorrow_code));
+        DrawLineText(24, 13, Color(255, 215, 0), reading.tomorrow_min + "-" + reading.tomorrow_max + " C");
+      }
+    }
+  }
+
   RGBMatrix *const matrix_;
   FrameCanvas *offscreen_;
   std::string station_abbr_;
@@ -341,7 +347,7 @@ private:
 
 }  // namespace
 
-// Factory function: Instantiates and returns the class (like standard exports)
+// Factory function
 DemoRunner *CreateMeteoSwissWeather(RGBMatrix *matrix,
                                     const std::string &station_abbr) {
   return new MeteoSwissWeather(matrix, station_abbr);

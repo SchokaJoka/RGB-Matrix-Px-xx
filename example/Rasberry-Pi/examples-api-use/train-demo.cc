@@ -146,6 +146,7 @@ namespace
     bool train_animating_ = false;
     int train_x_ = 0;
     int train_y_ = 0;
+    bool train_moving_right_ = true;
 
   public:
     TrainStationBoardDemo(RGBMatrix *matrix, const std::string &station_abbr)
@@ -190,40 +191,46 @@ namespace
       train_x_ = -20;
       train_y_ = matrix_->height() - 12;
 
+      const int train_width = 17;
+
       while (!interrupt_received)
       {
         RenderFrame(ok, trains, error, show_delay_mode);
 
         offscreen_ = matrix_->SwapOnVSync(offscreen_);
 
-        train_x_++;
+        if (train_moving_right_)
+        {
+          train_x_++;
 
-        if (train_x_ > matrix_->width())
-          train_x_ = -20;
+          if (train_x_ >= matrix_->width() - train_width)
+            train_moving_right_ = false;
+        }
+        else
+        {
+          train_x_--;
 
-        usleep(50000); // 20 FPS
+          if (train_x_ <= 0)
+            train_moving_right_ = true;
+        }
+
+        usleep(50000);
       }
     }
-    void DrawSteamTrain(int x, int y)
+    void DrawSteamTrain(int x, int y, bool flipped)
     {
-      // Legende:
-      // X = schwarz/dunkelgrau
-      // W = Fenster (hellblau)
-      // R = rote Räder
-      // S = Rauch (grau)
-
       const char *sprite[] = {
-          ".........SSSS....",
-          ".....SS.SSSSSS...",
-          "...SSSSSSSSSSSS..",
-          "..SSSSSSS..SSSS..",
-          ".........XXXX....",
-          "...XXXXXX.XXXXX..",
+          "....SSSS.........",
+          "...SSSSSS.SS.....",
+          "..SSSSSSSSSSSS...",
+          "..SSSS..SSSSSSS..",
+          "....XXXX.........",
+          "..XXXXX.XXXXXX...",
           ".XXXXXXXXXXXXXXX.",
-          ".XXXXXXXXXXXXXWXX",
+          "XXWXXXXXXXXXXXXX.",
           "XXXXXXXXXXXXXXXXX",
-          ".XXXXXXXXXXXXXXXX",
-          "...XXRRXXRRXXRRXX",
+          "XXXXXXXXXXXXXXXX.",
+          "XXRRXXRRXXRRXX...",
           "................",
       };
 
@@ -231,9 +238,15 @@ namespace
 
       for (int row = 0; row < h; ++row)
       {
-        for (int col = 0; sprite[row][col] != '\0'; ++col)
+        int width = strlen(sprite[row]);
+
+        for (int col = 0; col < width; ++col)
         {
-          switch (sprite[row][col])
+          char pixel = flipped
+                           ? sprite[row][width - 1 - col]
+                           : sprite[row][col];
+
+          switch (pixel)
           {
           case 'X':
             offscreen_->SetPixel(x + col, y + row, 30, 35, 45);
@@ -267,7 +280,7 @@ namespace
       offscreen_->Fill(0, 0, 0);
       if (train_animating_)
       {
-        DrawSteamTrain(train_x_, train_y_);
+        DrawSteamTrain(train_x_, train_y_, train_moving_right_);
       }
       // =========================
       // 🕒 GROSSE UHR OBEN

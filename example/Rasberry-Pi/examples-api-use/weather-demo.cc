@@ -107,7 +107,11 @@ static bool RunCommand(const std::string &command, std::string *output,
 enum WeatherType {
   WEATHER_SUN,
   WEATHER_CLOUD,
-  WEATHER_RAIN
+  WEATHER_RAIN,
+  WEATHER_SUN_CLOUD,
+  WEATHER_SNOW,
+  WEATHER_THUNDER,
+  WEATHER_FOG
 };
 
 // Map MeteoSwiss pictogram weather code to our simplified WeatherType enum
@@ -120,27 +124,17 @@ static WeatherType GetWeatherType(const std::string &code_str) {
   
   switch (code) {
     case 1:  // Sunny
-    case 2:  // Mostly sunny
-    case 3:  // Partly sunny
     case 26: // High clouds
       return WEATHER_SUN;
+
+    case 2:  // Mostly sunny
+    case 3:  // Partly sunny
+      return WEATHER_SUN_CLOUD;
       
     case 7:  // Rain showers
     case 8:  // Heavy rain
-    case 9:  // Rain and snow showers
-    case 10: // Snow showers
-    case 11: // Thunderstorm
-    case 12: // Sunny intervals, chance of thunderstorms
-    case 13: // Sunny intervals, possible thunderstorms
     case 14: // Rain
-    case 15: // Snow
-    case 16: // Rain and snow
-    case 17: // Hail
     case 18: // Sunny intervals and rain
-    case 19: // Sunny intervals and snow
-    case 20: // Sunny intervals, rain and snow
-    case 21: // Thunderstorm
-    case 22: // Thunderstorm
     case 29: // Rain / showers
     case 30: // Rain / showers
     case 31: // Rain / showers
@@ -148,12 +142,30 @@ static WeatherType GetWeatherType(const std::string &code_str) {
     case 33: // Rain / showers
     case 34: // Rain / showers
     case 35: // Rain / showers
+      return WEATHER_RAIN;
+
+    case 9:  // Rain and snow showers
+    case 10: // Snow showers
+    case 15: // Snow
+    case 16: // Rain and snow
+    case 19: // Sunny intervals and snow
+    case 20: // Sunny intervals, rain and snow
+      return WEATHER_SNOW;
+
+    case 11: // Thunderstorm
+    case 12: // Sunny intervals, chance of thunderstorms
+    case 13: // Sunny intervals, possible thunderstorms
+    case 21: // Thunderstorm
+    case 22: // Thunderstorm
     case 39: // Snow/Rain/Storm
     case 40: // Snow/Rain/Storm
-      return WEATHER_RAIN;
+      return WEATHER_THUNDER;
+
+    case 6:  // Fog
+      return WEATHER_FOG;
       
     default:
-      // Default/fallback is WEATHER_CLOUD for codes like 4 (Overcast), 5 (Bedeckt), 6 (Fog), 23, 24, 25, 27, 28, etc.
+      // Default/fallback is WEATHER_CLOUD for codes like 4 (Overcast), 5 (Bedeckt), 23, 24, 25, 27, 28, etc.
       return WEATHER_CLOUD;
   }
 }
@@ -440,7 +452,7 @@ public:
       }
       
       // Render screen (Toggle between NOW and TOMORROW every 2.5s if narrow)
-      RenderFrame(ok, reading, error_message, (tick % 50) >= 25);
+      RenderFrame(ok, reading, error_message, (tick % 50) >= 25, tick);
       offscreen_ = matrix_->SwapOnVSync(offscreen_);
       
       usleep(100 * 1000); // Sleep for 100ms
@@ -454,10 +466,12 @@ private:
              text.c_str(), 0);
   }
 
-  // Draws a pixel-art weather icon on the canvas at (x,y)
-  void DrawWeatherIcon(int x, int y, WeatherType type) {
+  // Draws an animated pixel-art weather icon on the canvas at (x,y)
+  void DrawWeatherIcon(int x, int y, WeatherType type, int tick) {
     if (type == WEATHER_SUN) {
-      const char *sprite[] = {
+      // Alternate sun rays every 500ms (5 ticks)
+      bool frame = (tick / 5) % 2;
+      const char *sprite_a[] = {
         "....Y.YY.Y....",
         ".....YYYY.....",
         "..Y.YYYYYY.Y..",
@@ -469,6 +483,19 @@ private:
         ".....YYYY.....",
         "....Y.YY.Y....",
       };
+      const char *sprite_b[] = {
+        ".....Y.Y.Y....",
+        "....YYYYYY....",
+        "...YYYYYYYY...",
+        "Y.YYYYYYYYYY.Y",
+        "..YYYYYYYYYY..",
+        "..YYYYYYYYYY..",
+        "Y.YYYYYYYYYY.Y",
+        "...YYYYYYYY...",
+        "....YYYYYY....",
+        "....Y.Y.Y.....",
+      };
+      const char **sprite = frame ? sprite_b : sprite_a;
       for (int r = 0; r < 10; ++r) {
         for (int c = 0; sprite[r][c] != '\0'; ++c) {
           if (sprite[r][c] == 'Y') {
@@ -477,6 +504,10 @@ private:
         }
       }
     } else if (type == WEATHER_CLOUD) {
+      // Gently drift the cloud left-and-right slowly (range -2 to +2 pixels)
+      int drift[] = {0, 0, 1, 1, 2, 2, 1, 1, 0, 0, -1, -1, -2, -2, -1, -1};
+      int x_offset = drift[(tick / 8) % 16];
+
       const char *sprite[] = {
         "......CCCC......",
         "....CCCCCCCCC...",
@@ -489,14 +520,18 @@ private:
       for (int r = 0; r < 7; ++r) {
         for (int c = 0; sprite[r][c] != '\0'; ++c) {
           if (sprite[r][c] == 'C') {
-            offscreen_->SetPixel(x + c, y + r, 220, 220, 220); // Light Grey
+            offscreen_->SetPixel(x + x_offset + c, y + r, 220, 220, 220); // Light Grey
           } else if (sprite[r][c] == 'D') {
-            offscreen_->SetPixel(x + c, y + r, 130, 130, 130); // Shadow
+            offscreen_->SetPixel(x + x_offset + c, y + r, 130, 130, 130); // Shadow
           }
         }
       }
     } else if (type == WEATHER_RAIN) {
-      const char *sprite[] = {
+      // Float cloud and animate falling raindrops
+      int drift[] = {0, 0, 1, 1, 2, 2, 1, 1, 0, 0, -1, -1, -2, -2, -1, -1};
+      int x_offset = drift[(tick / 8) % 16];
+
+      const char *cloud_sprite[] = {
         "......CCCC......",
         "....CCCCCCCCC...",
         "...CCCCCCCCCCC..",
@@ -504,27 +539,200 @@ private:
         ".CCCCCCCCCCCCCCC",
         "CCCCCCCCCCCCCCCC",
         "DDDDDDDDDDDDDDDD",
+      };
+      for (int r = 0; r < 7; ++r) {
+        for (int c = 0; cloud_sprite[r][c] != '\0'; ++c) {
+          if (cloud_sprite[r][c] == 'C') {
+            offscreen_->SetPixel(x + x_offset + c, y + r, 200, 200, 200); // Grey cloud
+          } else if (cloud_sprite[r][c] == 'D') {
+            offscreen_->SetPixel(x + x_offset + c, y + r, 110, 110, 110); // Shadow
+          }
+        }
+      }
+
+      // 3-frame vertical scroll for falling rain
+      int rain_frame = (tick / 2) % 3;
+      const char *rain_sprite[] = {
         "....B....B....B.",
         "...B....B....B..",
         "..B....B....B...",
       };
-      for (int r = 0; r < 10; ++r) {
-        for (int c = 0; sprite[r][c] != '\0'; ++c) {
-          if (sprite[r][c] == 'C') {
-            offscreen_->SetPixel(x + c, y + r, 200, 200, 200); // Grey cloud
-          } else if (sprite[r][c] == 'D') {
-            offscreen_->SetPixel(x + c, y + r, 110, 110, 110); // Shadow
-          } else if (sprite[r][c] == 'B') {
-            offscreen_->SetPixel(x + c, y + r, 0, 191, 255); // Deep Sky Blue rain
+      for (int r = 0; r < 3; ++r) {
+        int src_row = (r - rain_frame + 3) % 3;
+        for (int c = 0; rain_sprite[src_row][c] != '\0'; ++c) {
+          if (rain_sprite[src_row][c] == 'B') {
+            offscreen_->SetPixel(x + x_offset + c, y + 7 + r, 0, 191, 255); // Deep Sky Blue rain
           }
         }
+      }
+    } else if (type == WEATHER_SUN_CLOUD) {
+      // Draw Sun in background (stationary, but rays alternate)
+      bool frame = (tick / 5) % 2;
+      const char *sun_a[] = {
+        "....Y.YY.Y....",
+        ".....YYYY.....",
+        "..Y.YYYYYY.Y..",
+        "..YYYYYYYYYY..",
+        "Y.YYYYYYYYYY.Y",
+        "Y.YYYYYYYYYY.Y",
+        "..YYYYYYYYYY..",
+        "..Y.YYYYYY.Y..",
+        ".....YYYY.....",
+        "....Y.YY.Y....",
+      };
+      const char *sun_b[] = {
+        ".....Y.Y.Y....",
+        "....YYYYYY....",
+        "...YYYYYYYY...",
+        "Y.YYYYYYYYYY.Y",
+        "..YYYYYYYYYY..",
+        "..YYYYYYYYYY..",
+        "Y.YYYYYYYYYY.Y",
+        "...YYYYYYYY...",
+        "....YYYYYY....",
+        "....Y.Y.Y.....",
+      };
+      const char **sun = frame ? sun_b : sun_a;
+      for (int r = 0; r < 10; ++r) {
+        for (int c = 0; sun[r][c] != '\0'; ++c) {
+          if (sun[r][c] == 'Y') {
+            offscreen_->SetPixel(x - 2 + c, y - 2 + r, 255, 200, 0); // Gold/Yellow (sun)
+          }
+        }
+      }
+
+      // Draw Cloud floating in foreground
+      int drift[] = {0, 0, 1, 1, 2, 2, 1, 1, 0, 0, -1, -1, -2, -2, -1, -1};
+      int x_offset = drift[(tick / 8) % 16];
+
+      const char *cloud[] = {
+        "......CCCC......",
+        "....CCCCCCCCC...",
+        "...CCCCCCCCCCC..",
+        "..CCCCCCCCCCCCC.",
+        ".CCCCCCCCCCCCCCC",
+        "CCCCCCCCCCCCCCCC",
+        "DDDDDDDDDDDDDDDD",
+      };
+      for (int r = 0; r < 7; ++r) {
+        for (int c = 0; cloud[r][c] != '\0'; ++c) {
+          if (cloud[r][c] == 'C') {
+            offscreen_->SetPixel(x + 2 + x_offset + c, y + 3 + r, 220, 220, 220); // Light Grey
+          } else if (cloud[r][c] == 'D') {
+            offscreen_->SetPixel(x + 2 + x_offset + c, y + 3 + r, 130, 130, 130); // Shadow
+          }
+        }
+      }
+    } else if (type == WEATHER_SNOW) {
+      // Float cloud
+      int drift[] = {0, 0, 1, 1, 2, 2, 1, 1, 0, 0, -1, -1, -2, -2, -1, -1};
+      int x_offset = drift[(tick / 8) % 16];
+
+      const char *cloud_sprite[] = {
+        "......CCCC......",
+        "....CCCCCCCCC...",
+        "...CCCCCCCCCCC..",
+        "..CCCCCCCCCCCCC.",
+        ".CCCCCCCCCCCCCCC",
+        "CCCCCCCCCCCCCCCC",
+        "DDDDDDDDDDDDDDDD",
+      };
+      for (int r = 0; r < 7; ++r) {
+        for (int c = 0; cloud_sprite[r][c] != '\0'; ++c) {
+          if (cloud_sprite[r][c] == 'C') {
+            offscreen_->SetPixel(x + x_offset + c, y + r, 220, 220, 220); // Light Grey
+          } else if (cloud_sprite[r][c] == 'D') {
+            offscreen_->SetPixel(x + x_offset + c, y + r, 130, 130, 130); // Shadow
+          }
+        }
+      }
+
+      // Animate snow falling down slowly (4 frames)
+      int snow_frame = (tick / 4) % 4;
+      const char *snow_sprite[] = {
+        "....W....W....W.",
+        "..W....W....W...",
+        "......W....W....",
+        ".W....W....W....",
+      };
+      for (int r = 0; r < 3; ++r) {
+        int src_row = (r - snow_frame + 4) % 4;
+        for (int c = 0; snow_sprite[src_row][c] != '\0'; ++c) {
+          if (snow_sprite[src_row][c] == 'W') {
+            offscreen_->SetPixel(x + x_offset + c, y + 7 + r, 255, 255, 255); // Pure White snow
+          }
+        }
+      }
+    } else if (type == WEATHER_THUNDER) {
+      // Float dark storm cloud
+      int drift[] = {0, 0, 1, 1, 2, 2, 1, 1, 0, 0, -1, -1, -2, -2, -1, -1};
+      int x_offset = drift[(tick / 8) % 16];
+
+      const char *cloud_sprite[] = {
+        "......CCCC......",
+        "....CCCCCCCCC...",
+        "...CCCCCCCCCCC..",
+        "..CCCCCCCCCCCCC.",
+        ".CCCCCCCCCCCCCCC",
+        "CCCCCCCCCCCCCCCC",
+        "DDDDDDDDDDDDDDDD",
+      };
+      for (int r = 0; r < 7; ++r) {
+        for (int c = 0; cloud_sprite[r][c] != '\0'; ++c) {
+          if (cloud_sprite[r][c] == 'C') {
+            offscreen_->SetPixel(x + x_offset + c, y + r, 100, 100, 110); // Dark storm cloud
+          } else if (cloud_sprite[r][c] == 'D') {
+            offscreen_->SetPixel(x + x_offset + c, y + r, 60, 60, 70); // Darker shadow
+          }
+        }
+      }
+
+      // Flash lightning bolt
+      bool flash = (tick % 12 == 0) || (tick % 12 == 2); // natural double flash
+      if (flash) {
+        const char *lightning[] = {
+          ".......Y........",
+          "......YY........",
+          ".....YYY........",
+          ".......Y........",
+          "......Y.........",
+        };
+        for (int r = 0; r < 5; ++r) {
+          for (int c = 0; lightning[r][c] != '\0'; ++c) {
+            if (lightning[r][c] == 'Y') {
+              offscreen_->SetPixel(x + x_offset + c, y + 7 + r, 255, 255, 0); // Bright Yellow lightning
+            }
+          }
+        }
+      }
+    } else if (type == WEATHER_FOG) {
+      // Draw 4 drifting fog/mist bands
+      int drift1 = ((tick / 4) % 12) - 6; // range -6 to 5
+      int drift2 = -(((tick / 6) % 12) - 6);
+      int drift3 = ((tick / 5) % 10) - 5;
+      
+      // Fog band 1
+      for (int c = 2; c < 14; ++c) {
+        offscreen_->SetPixel(x + drift1 + c, y + 2, 160, 160, 160);
+      }
+      // Fog band 2
+      for (int c = 0; c < 16; ++c) {
+        offscreen_->SetPixel(x + drift2 + c, y + 5, 120, 120, 120);
+      }
+      // Fog band 3
+      for (int c = 3; c < 13; ++c) {
+        offscreen_->SetPixel(x + drift3 + c, y + 8, 160, 160, 160);
+      }
+      // Fog band 4
+      for (int c = 1; c < 15; ++c) {
+        offscreen_->SetPixel(x + drift1 + c, y + 11, 100, 100, 100);
       }
     }
   }
 
   // Renders the weather visual information
   void RenderFrame(bool ok, const WeatherReading &reading,
-                   const std::string &error_message, bool toggle_tomorrow) {
+                   const std::string &error_message, bool toggle_tomorrow, int tick) {
     offscreen_->Fill(0, 0, 0); // Clear screen
 
     if (!ok) {
@@ -541,7 +749,7 @@ private:
     if (w >= 128) {
       // Draw NOW (Left side)
       DrawLineText(4, 2, Color(0, 191, 255), "NOW (" + reading.current_time + ")");
-      DrawWeatherIcon(12, 16, GetWeatherType(reading.current_code));
+      DrawWeatherIcon(12, 16, GetWeatherType(reading.current_code), tick);
       DrawLineText(32, 18, Color(255, 215, 0), reading.current_temp + " C");
 
       // Draw vertical separator
@@ -551,19 +759,19 @@ private:
 
       // Draw TOMORROW (Right side)
       DrawLineText(68, 2, Color(0, 255, 127), "TOMORROW");
-      DrawWeatherIcon(76, 16, GetWeatherType(reading.tomorrow_code));
+      DrawWeatherIcon(76, 16, GetWeatherType(reading.tomorrow_code), tick);
       DrawLineText(96, 18, Color(255, 215, 0), reading.tomorrow_min + " - " + reading.tomorrow_max + " C");
     } else {
       // Screen is narrow (e.g. 64px), toggle view every 2.5 seconds
       if (!toggle_tomorrow) {
         // Draw NOW
         DrawLineText(2, 1, Color(0, 191, 255), "NOW (" + reading.current_time + ")");
-        DrawWeatherIcon(4, 11, GetWeatherType(reading.current_code));
+        DrawWeatherIcon(4, 11, GetWeatherType(reading.current_code), tick);
         DrawLineText(24, 13, Color(255, 215, 0), reading.current_temp + " C");
       } else {
         // Draw TOMORROW
         DrawLineText(2, 1, Color(0, 255, 127), "TOMORROW");
-        DrawWeatherIcon(4, 11, GetWeatherType(reading.tomorrow_code));
+        DrawWeatherIcon(4, 11, GetWeatherType(reading.tomorrow_code), tick);
         DrawLineText(24, 13, Color(255, 215, 0), reading.tomorrow_min + "-" + reading.tomorrow_max + " C");
       }
     }

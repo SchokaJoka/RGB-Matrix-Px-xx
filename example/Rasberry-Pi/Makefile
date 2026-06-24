@@ -1,14 +1,8 @@
-# This toplevel Makefile compiles the library in the lib subdirectory.
-# If you want to see how to integrate the library in your own projects, check
-# out the sub-directories examples-api-use/ and utils/
+# This toplevel Makefile compiles the library in the lib subdirectory and then
+# builds the DI Plaza Infoscreen programs in examples-api-use/.
 RGB_LIBDIR=./lib
 RGB_LIBRARY_NAME=rgbmatrix
 RGB_LIBRARY=$(RGB_LIBDIR)/lib$(RGB_LIBRARY_NAME).a
-
-# Some language bindings.
-# Python is now handled by scikit-build-core and cmake, not here.
-# PYTHON_LIB_DIR=bindings/python
-CSHARP_LIB_DIR=bindings/c\#
 
 all : $(RGB_LIBRARY)
 
@@ -18,13 +12,7 @@ $(RGB_LIBRARY): FORCE
 
 clean:
 	$(MAKE) -C lib clean
-	$(MAKE) -C utils clean
 	$(MAKE) -C examples-api-use clean
-	# $(MAKE) -C $(PYTHON_LIB_DIR) clean
-
-build-csharp:
-	$(MAKE) -C $(CSHARP_LIB_DIR) nuget
-	$(MAKE) -C $(CSHARP_LIB_DIR) build
 
 FORCE:
 .PHONY: FORCE

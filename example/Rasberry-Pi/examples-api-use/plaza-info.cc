@@ -1033,18 +1033,17 @@ int main(int argc, char *argv[]) {
   int tick = 0;
   
   // Train animation state
+  // The train stays IDLE (hidden off-screen) and only does a single pass
+  // whenever the clock reaches a 15-minute mark (xx:00, xx:15, xx:30, xx:45).
   enum TrainState {
-    MOVING_RIGHT,
-    WAIT_RIGHT,
-    MOVING_LEFT,
-    WAIT_LEFT
+    IDLE,
+    MOVING_RIGHT
   };
-  TrainState train_state = MOVING_RIGHT;
+  TrainState train_state = IDLE;
   const int train_total_width = 100;
   int train_x = -train_total_width;
   int train_y = matrix->height() - 15; // 49
-  int wait_counter = 0;
-  const int wait_frames = 40; // 40 * 50ms = 2s
+  int last_trigger_min = -1; // last minute value the animation was triggered on
 
   // Main UI update loop
   while (!interrupt_received) {
@@ -1158,43 +1157,36 @@ int main(int argc, char *argv[]) {
     // ==========================================
     // 5. SBB Train (Bottom, train_y = 49)
     // ==========================================
-    // Draw Giruno (Front-Schnauze, Mittelwagen, Heck-Schnauze)
-    DrawGirunoSchnauze(offscreen, train_x, train_y, false);
-    DrawGirunoMittelwagen(offscreen, train_x + 36, train_y);
-    DrawGirunoSchnauze(offscreen, train_x + 64, train_y, true);
+    // Trigger a single train pass every 15 minutes (xx:00/15/30/45).
+    if (train_state == IDLE) {
+      time_t now = time(NULL);
+      struct tm *lt = localtime(&now);
+      if (lt->tm_min % 15 == 0 && lt->tm_min != last_trigger_min) {
+        last_trigger_min = lt->tm_min;
+        train_state = MOVING_RIGHT;
+        train_x = -train_total_width;
+      }
+    }
+
+    // Only draw the train while it is animating; hidden when IDLE.
+    if (train_state != IDLE) {
+      // Draw Giruno (Front-Schnauze, Mittelwagen, Heck-Schnauze)
+      DrawGirunoSchnauze(offscreen, train_x, train_y, false);
+      DrawGirunoMittelwagen(offscreen, train_x + 36, train_y);
+      DrawGirunoSchnauze(offscreen, train_x + 64, train_y, true);
+    }
 
     // Update train state machine
     switch (train_state) {
       case MOVING_RIGHT:
         train_x++;
         if (train_x > matrix->width() + 40) {
-          train_state = WAIT_RIGHT;
-          wait_counter = 0;
-        }
-        break;
-
-      case WAIT_RIGHT:
-        wait_counter++;
-        if (wait_counter > wait_frames) {
-          train_state = MOVING_LEFT;
-          train_x = matrix->width();
-        }
-        break;
-
-      case MOVING_LEFT:
-        train_x--;
-        if (train_x < -train_total_width) {
-          train_state = WAIT_LEFT;
-          wait_counter = 0;
-        }
-        break;
-
-      case WAIT_LEFT:
-        wait_counter++;
-        if (wait_counter > wait_frames) {
-          train_state = MOVING_RIGHT;
+          train_state = IDLE;
           train_x = -train_total_width;
         }
+        break;
+
+      case IDLE:
         break;
     }
 

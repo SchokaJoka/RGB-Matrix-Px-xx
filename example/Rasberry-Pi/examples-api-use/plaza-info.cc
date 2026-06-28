@@ -1157,11 +1157,11 @@ int main(int argc, char *argv[]) {
     // ==========================================
     // 5. SBB Train (Bottom, train_y = 49)
     // ==========================================
-    // Trigger a single train pass every 15 minutes (xx:00/15/30/45).
+    // Trigger a single train pass every 5 minutes (testing; normally 15).
     if (train_state == IDLE) {
       time_t now = time(NULL);
       struct tm *lt = localtime(&now);
-      if (lt->tm_min % 15 == 0 && lt->tm_min != last_trigger_min) {
+      if (lt->tm_min % 5 == 0 && lt->tm_min != last_trigger_min) {
         last_trigger_min = lt->tm_min;
         train_state = MOVING_RIGHT;
         train_x = -train_total_width;

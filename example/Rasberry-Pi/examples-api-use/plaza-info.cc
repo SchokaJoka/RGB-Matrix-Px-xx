@@ -1037,13 +1037,15 @@ int main(int argc, char *argv[]) {
   // whenever the clock reaches a 15-minute mark (xx:00, xx:15, xx:30, xx:45).
   enum TrainState {
     IDLE,
-    MOVING_RIGHT
+    MOVING_RIGHT,
+    MOVING_LEFT
   };
   TrainState train_state = IDLE;
   const int train_total_width = 100;
   int train_x = -train_total_width;
   int train_y = matrix->height() - 15; // 49
   int last_trigger_min = -1; // last minute value the animation was triggered on
+  bool next_dir_right = true; // alternate pass direction each trigger
 
   // Main UI update loop
   while (!interrupt_received) {
@@ -1163,8 +1165,14 @@ int main(int argc, char *argv[]) {
       struct tm *lt = localtime(&now);
       if (lt->tm_min % 5 == 0 && lt->tm_min != last_trigger_min) {
         last_trigger_min = lt->tm_min;
-        train_state = MOVING_RIGHT;
-        train_x = -train_total_width;
+        if (next_dir_right) {
+          train_state = MOVING_RIGHT;
+          train_x = -train_total_width;
+        } else {
+          train_state = MOVING_LEFT;
+          train_x = matrix->width() + 40;
+        }
+        next_dir_right = !next_dir_right; // alternate for next trigger
       }
     }
 
@@ -1182,7 +1190,13 @@ int main(int argc, char *argv[]) {
         train_x++;
         if (train_x > matrix->width() + 40) {
           train_state = IDLE;
-          train_x = -train_total_width;
+        }
+        break;
+
+      case MOVING_LEFT:
+        train_x--;
+        if (train_x < -train_total_width) {
+          train_state = IDLE;
         }
         break;
 

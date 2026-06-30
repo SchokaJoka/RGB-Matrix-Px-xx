@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <ctime>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -165,8 +166,12 @@ static bool DiscoverLatestRun(std::string *item_id, std::string *latest_run, std
     return false;
   }
   
+  // Collect all distinct run timestamps that appear in the STAC item.
+  // MeteoSwiss publishes a run's parameter files incrementally, so the
+  // newest run number may only have a few of the parameters we need.
+  // Gather candidates and pick the newest one that actually has all of them.
+  std::set<std::string> runs;
   size_t pos = 0;
-  std::string max_run = "";
   while ((pos = json.find("vnut12.lssw.", pos)) != std::string::npos) {
     pos += 12;
     if (pos + 12 <= json.length()) {
@@ -176,20 +181,40 @@ static bool DiscoverLatestRun(std::string *item_id, std::string *latest_run, std
         if (!isdigit(c)) { is_digits = false; break; }
       }
       if (is_digits) {
-        if (run > max_run) {
-          max_run = run;
-        }
+        runs.insert(run);
       }
     }
   }
-  
-  if (max_run.empty()) {
+
+  if (runs.empty()) {
     *error_message = "No forecast runs found in STAC item";
     return false;
   }
-  
-  *latest_run = max_run;
-  return true;
+
+  // Parameters FetchWeatherReading needs to download for a complete reading.
+  static const char *kRequiredParams[] = {
+    "tre200h0", "jww003i0", "tre200dn", "tre200dx", "jp2000d0"
+  };
+
+  // Iterate runs newest-first; pick the first with every required CSV listed.
+  for (auto it = runs.rbegin(); it != runs.rend(); ++it) {
+    const std::string &run = *it;
+    bool complete = true;
+    for (const char *param : kRequiredParams) {
+      std::string needle = "vnut12.lssw." + run + "." + param + ".csv";
+      if (json.find(needle) == std::string::npos) {
+        complete = false;
+        break;
+      }
+    }
+    if (complete) {
+      *latest_run = run;
+      return true;
+    }
+  }
+
+  *error_message = "No complete forecast run found in STAC item";
+  return false;
 }
 
 static bool FetchParameterRow(const std::string &item_id, const std::string &latest_run,
